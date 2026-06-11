@@ -114,9 +114,9 @@ export default function HomePage() {
 
         {/* Circle content */}
         <div className="hero-content-circle">
-          <div className="hero-badge">Future Champions Prediction Challenge</div>
+          <div className="hero-badge">The Future Awaits</div>
 
-          <h1 className="hero-main-title">FUTURE CHAMPIONS</h1>
+          <h1 className="hero-main-title">The Future is Closer Than You Think</h1>
           <div className="hero-sub-title">WIN $1,000</div>
 
           <p className="hero-desc">
@@ -132,6 +132,28 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+
+      {/* Bottom scroll indicator */}
+        <div style={{
+          position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          opacity: 0.6,
+        }}>
+          <span style={{ fontSize: '0.7rem', letterSpacing: '0.2em', color: '#fff', textTransform: 'uppercase' }}>Scroll</span>
+          <div style={{
+            width: 24, height: 40, borderRadius: 12, border: '1px solid rgba(255,255,255,0.3)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6px 0'
+          }}>
+            <div style={{
+              width: 3, height: 8, borderRadius: 2, background: '#0096FF',
+              animation: 'float 1.5s ease-in-out infinite'
+            }} />
+          </div>
+        </div>
+      </section>
+
+      {/* ── PROMO VIDEO TEASER (shown on subsequent visit) ──── */}
+      {/* This section is commented out on homepage since full hero is above */}
 
       {/* ── HOW TO JOIN & WIN ───────────────────────────────── */}
       <section className="section" style={{ background: 'var(--color-surface-1)' }}>
