@@ -918,6 +918,9 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   :root { --fs-6xl: 3rem; --fs-5xl: 2.2rem; }
   .header-nav { display: none; }
   .mobile-menu-btn { display: block; }
+  .header-inner { overflow: visible; }
+  .header-actions > *:not(.mobile-menu-btn) { display: none; }
+  .header-actions { margin-left: auto; flex-shrink: 0; }
   .steps-grid { grid-template-columns: 1fr; }
   .scoring-grid { grid-template-columns: repeat(2, 1fr); }
   .prizes-grid { grid-template-columns: 1fr; }

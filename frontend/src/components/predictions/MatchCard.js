@@ -182,7 +182,7 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
       </div>
 
       {/* Score prediction */}
-      {!isFinished && prediction?.winner && prediction.winner !== 'draw' && (
+      {!isFinished && prediction?.winner && (
         <div style={{
           background: 'var(--color-surface-3)', borderRadius: 'var(--radius-lg)',
           padding: 'var(--space-4)', border: '1px solid rgba(0,150,255,0.15)',
