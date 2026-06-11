@@ -86,7 +86,7 @@ export default function HomePage() {
           muted
           loop
           playsInline
-          src="/videos/hero-main.mp4"
+          src="/images/hero-main.mp4"
           poster="/images/hero-poster.jpg"
         />
         <div className="hero-video-overlay" />
