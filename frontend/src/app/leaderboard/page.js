@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import { supabase } from '@/lib/supabaseClient';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -48,15 +49,34 @@ export default function LeaderboardPage() {
       : `/api/leaderboard?round=${activeTab}&limit=200`;
 
     api.get(endpoint).then(res => {
-      setLeaders(res.data || []);
+      // Backend returns a flat array directly (not wrapped in { data: [] })
+      const data = Array.isArray(res) ? res : (res.data || res || []);
+      setLeaders(data);
     }).catch(() => {}).finally(() => setLoading(false));
   };
 
   useEffect(() => {
     setLoading(true);
     fetchLeaderboard();
-    const interval = setInterval(fetchLeaderboard, 60000);
-    return () => clearInterval(interval);
+
+    // Realtime: refresh when user points or predictions change
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('leaderboard-realtime')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
+          fetchLeaderboard();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => {
+          fetchLeaderboard();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
+          fetchLeaderboard();
+        })
+        .subscribe();
+    }
+
+    return () => { if (channel) supabase?.removeChannel(channel); };
   }, [activeTab]);
 
   const filtered = leaders.filter(u => {

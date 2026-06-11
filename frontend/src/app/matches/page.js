@@ -106,12 +106,17 @@ export default function MatchesPage() {
 
     fetchData();
 
-    // Realtime subscription
+    // Realtime subscriptions
     if (supabase) {
       channel = supabase
         .channel('matches-realtime')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
           fetchData();
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+          if (payload.new?.id === user?.id) {
+            fetchData();
+          }
         })
         .subscribe();
     }
