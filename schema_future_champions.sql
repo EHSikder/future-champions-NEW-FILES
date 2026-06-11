@@ -87,9 +87,9 @@ CREATE TABLE IF NOT EXISTS public.matches (
 -- ── users ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.users (
   id                         uuid        NOT NULL DEFAULT uuid_generate_v4(),
-  full_name                  text        NOT NULL,
-  mobile_number              text        NOT NULL UNIQUE,
-  email                      text        NOT NULL,
+  full_name                  text,
+  mobile_number              text        UNIQUE,
+  email                      text,
   firebase_uid               text,
   civil_id                   text        CHECK (civil_id ~ '^\d{12}$'),
   favorite_team_id           uuid        REFERENCES public.teams(id),
