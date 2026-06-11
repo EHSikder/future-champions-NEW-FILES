@@ -301,11 +301,11 @@ export default function LeaderboardPage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontWeight: 800, fontSize: '0.8rem', color: 'white'
           }}>
-            {getInitials(currentUser.full_name)}
+            {getInitials(currentUser.display_name || currentUser.full_name)}
           </div>
           <div style={{ flex: 1 }}>
             <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'white' }}>
-              {getShortName(currentUser.full_name)}
+              {getShortName(currentUser.display_name || currentUser.full_name)}
             </span>
             <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}> (You)</span>
           </div>

@@ -80,7 +80,7 @@ router.get('/', async (req, res, next) => {
 
     const { data: users, error: userErr } = await supabase
       .from('users')
-      .select('id, full_name')
+      .select('id, full_name, display_name')
       .in('id', userIds);
 
     if (userErr) throw userErr;
