@@ -45,7 +45,7 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, googleProvider);
       const token = await result.user.getIdToken();
       
-      const res = await api.post('/api/auth/firebase-login', { token });
+      const res = await api.post('/api/auth/verify', { idToken: token });
       
       if (res.success) {
         login(res.data.token, res.data.user);
@@ -85,7 +85,7 @@ export default function LoginPage() {
       }
 
       const token = await result.user.getIdToken();
-      const res = await api.post('/api/auth/firebase-login', { token });
+      const res = await api.post('/api/auth/verify', { idToken: token });
       
       if (res.success) {
         login(res.data.token, res.data.user);

@@ -10,7 +10,7 @@ import Link from 'next/link';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading, login } = useAuth();
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState(null);
   const { t } = useLanguage();
@@ -48,12 +48,18 @@ export default function SignupPage() {
       const result = await signInWithPopup(auth, googleProvider);
       const token = await result.user.getIdToken();
       
-      const res = await api.post('/api/auth/firebase-signup', { token });
+      const res = await api.post('/api/auth/verify', { idToken: token });
       
-      if (res.success && res.requiresProfileCompletion) {
-        sessionStorage.setItem('temp_firebase_token', token);
-        sessionStorage.setItem('temp_user_info', JSON.stringify(res.user));
-        router.push('/complete-profile');
+      if (res.success) {
+        const userData = res.data.user;
+        if (!userData.profile_complete) {
+          sessionStorage.setItem('temp_firebase_token', token);
+          sessionStorage.setItem('temp_user_info', JSON.stringify(userData));
+          router.push('/complete-profile');
+        } else {
+          login(res.data.token, userData);
+          router.push('/predictions');
+        }
       }
     } catch (err) {
       const msg = err.data?.message || err.message || 'Failed to sign up with Google.';
@@ -142,12 +148,18 @@ export default function SignupPage() {
         if (currentUser.emailVerified) {
           const token = await currentUser.getIdToken(true); // Force refresh token
           
-          const res = await api.post('/api/auth/firebase-signup', { token });
+          const res = await api.post('/api/auth/verify', { idToken: token });
           
-          if (res.success && res.requiresProfileCompletion) {
-            sessionStorage.setItem('temp_firebase_token', token);
-            sessionStorage.setItem('temp_user_info', JSON.stringify(res.user));
-            router.push('/complete-profile');
+          if (res.success) {
+            const userData = res.data.user;
+            if (!userData.profile_complete) {
+              sessionStorage.setItem('temp_firebase_token', token);
+              sessionStorage.setItem('temp_user_info', JSON.stringify(userData));
+              router.push('/complete-profile');
+            } else {
+              login(res.data.token, userData);
+              router.push('/predictions');
+            }
           }
         } else {
           setError('Email not yet verified. Please check your inbox and click the verification link, then try again.');
