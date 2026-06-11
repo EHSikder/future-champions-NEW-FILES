@@ -134,16 +134,19 @@ export default function CompleteProfilePage() {
         headers: { Authorization: `Bearer ${jwtToken}` }
       });
 
-      login(res.data.token, res.data.user);
+      // Use token from response, or fall back to the one we already have
+      const finalToken = res.data.token || jwtToken;
+      const finalUser = res.data.user || res.data;
+
+      login(finalToken, finalUser);
+
+      // Clean up temp session storage
+      sessionStorage.removeItem('temp_jwt_token');
+      sessionStorage.removeItem('temp_user_info');
       sessionStorage.setItem('fc_new_signup', 'true');
       
-      // Delay removing session storage to prevent premature redirect to /login
-      setTimeout(() => {
-        sessionStorage.removeItem('temp_jwt_token');
-        sessionStorage.removeItem('temp_user_info');
-      }, 1000);
-      
-      router.push('/matches');
+      // Hard redirect to break any React state loops
+      window.location.href = '/matches';
     } catch (err) {
       setError(err.data?.message || err.message || 'Failed to complete profile');
       setSubmitting(false);

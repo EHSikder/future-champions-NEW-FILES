@@ -21,13 +21,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && !loading) {
-      if (!user?.full_name || !user?.favorite_team_id) {
-        router.push('/complete-profile');
-      } else {
-        router.push('/matches');
-      }
+      window.location.href = '/matches';
     }
-  }, [isAuthenticated, loading, user, router]);
+  }, [isAuthenticated, loading]);
 
   // Auto-dismiss banner after 6 seconds
   useEffect(() => {

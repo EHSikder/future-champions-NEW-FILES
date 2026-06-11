@@ -81,7 +81,9 @@ router.post('/verify', async (req, res, next) => {
           is_verified:             user.is_verified,
           has_submitted_prediction: user.has_submitted_prediction,
           total_points:            user.total_points,
-          profile_complete:        !!user.full_name,
+          favorite_team_id:        user.favorite_team_id,
+          display_name:            user.display_name,
+          profile_complete:        !!(user.full_name && user.favorite_team_id),
         },
       },
     });
@@ -143,7 +145,28 @@ router.put('/profile', auth, async (req, res, next) => {
 
     if (error) throw error;
 
-    res.json({ success: true, message: 'Profile updated.', data: user });
+    // Return a fresh token so the frontend can update its session
+    const newToken = signToken({ userId: req.user.userId, firebaseUid: req.user.firebaseUid });
+
+    res.json({
+      success: true,
+      message: 'Profile updated.',
+      data: {
+        token: newToken,
+        user: {
+          id:                      user.id,
+          full_name:               user.full_name,
+          email:                   user.email,
+          mobile_number:           user.mobile_number,
+          is_verified:             user.is_verified,
+          has_submitted_prediction: user.has_submitted_prediction,
+          total_points:            user.total_points,
+          favorite_team_id:        user.favorite_team_id,
+          display_name:            user.display_name,
+          profile_complete:        !!(user.full_name && user.favorite_team_id),
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }
