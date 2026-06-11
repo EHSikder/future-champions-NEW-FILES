@@ -303,7 +303,7 @@ router.get('/export', adminAuth, exportRules, validate, async (req, res, next) =
   try {
     const { type, format } = req.query;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `wc2026_${type}_${timestamp}`;
+    const filename = `future_champions_${type}_${timestamp}`;
 
     if (format === 'xlsx') {
       const buffer = await generateXlsx(type);
