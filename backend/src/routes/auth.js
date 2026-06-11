@@ -100,7 +100,7 @@ router.get('/me', auth, async (req, res, next) => {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, full_name, email, mobile_number, civil_id, is_verified, has_submitted_prediction, total_points, favorite_team_id, created_at')
+      .select('id, full_name, display_name, email, mobile_number, civil_id, company_name, hear_about_us, is_verified, has_submitted_prediction, total_points, favorite_team_id, created_at')
       .eq('id', req.user.userId)
       .single();
 

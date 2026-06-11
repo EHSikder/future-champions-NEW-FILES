@@ -86,7 +86,7 @@ export default function MatchesPage() {
 
         // Fetch leaderboard standing
         api.get('/api/leaderboard?limit=200').then(resLb => {
-          const lbData = resLb.data || [];
+          const lbData = Array.isArray(resLb) ? resLb : (resLb.data || []);
           if (lbData.length > 0) setTopPlayer(lbData[0]);
           const me = lbData.find(u => u.id === user.id);
           if (me) setUserStanding(me);
@@ -106,7 +106,7 @@ export default function MatchesPage() {
 
     fetchData();
 
-    // Realtime subscriptions
+    // Realtime subscriptions for matches + users
     if (supabase) {
       channel = supabase
         .channel('matches-realtime')
@@ -121,7 +121,13 @@ export default function MatchesPage() {
         .subscribe();
     }
 
-    return () => { if (channel) supabase?.removeChannel(channel); };
+    // Polling fallback every 30s in case realtime isn't enabled for some tables
+    const pollInterval = setInterval(fetchData, 30000);
+
+    return () => {
+      if (channel) supabase?.removeChannel(channel);
+      clearInterval(pollInterval);
+    };
   }, [isAuthenticated, user?.id]);
 
   const handlePredictionChange = (matchNumber, field, value) => {

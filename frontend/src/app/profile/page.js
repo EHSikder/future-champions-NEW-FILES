@@ -14,6 +14,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Display name editing
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState('');
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
+  const [displayNameMsg, setDisplayNameMsg] = useState(null);
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/login');
@@ -22,9 +28,32 @@ export default function ProfilePage() {
     if (isAuthenticated) {
       api.get('/api/auth/me').then(res => {
         setProfile(res.data);
+        setDisplayNameInput(res.data?.display_name || '');
       }).catch(() => {}).finally(() => setLoading(false));
     }
   }, [isAuthenticated, authLoading, router]);
+
+  const handleSaveDisplayName = async () => {
+    const trimmed = displayNameInput.trim();
+    if (!trimmed) {
+      setDisplayNameMsg({ type: 'error', text: 'Display name cannot be empty.' });
+      return;
+    }
+    try {
+      setSavingDisplayName(true);
+      setDisplayNameMsg(null);
+      const res = await api.put('/api/auth/profile', { display_name: trimmed });
+      const updatedUser = res.data?.user || res.data;
+      setProfile(prev => ({ ...prev, display_name: updatedUser.display_name || trimmed }));
+      setEditingDisplayName(false);
+      setDisplayNameMsg({ type: 'success', text: 'Display name updated!' });
+      setTimeout(() => setDisplayNameMsg(null), 3000);
+    } catch (err) {
+      setDisplayNameMsg({ type: 'error', text: err.data?.message || 'Failed to update.' });
+    } finally {
+      setSavingDisplayName(false);
+    }
+  };
 
   if (authLoading || loading) {
     return <div className="loading-page"><div className="spinner spinner-lg" style={{ color: 'var(--color-golden-yellow)' }} /></div>;
@@ -51,7 +80,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Notification Banner ─────────────────────────────── */}
+      {/* Notification Banner */}
       <NotificationBanner />
 
       {/* Points Banner */}
@@ -100,9 +129,9 @@ export default function ProfilePage() {
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <h3 style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--fs-lg)' }}>Account Details</h3>
         <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+          {/* Regular fields */}
           {[
             ['Name', profile.full_name],
-            ['Display Name', profile.display_name || '—'],
             ['Company', profile.company_name || '—'],
             ['Email', profile.email],
             ['Mobile', profile.mobile_number],
@@ -114,12 +143,73 @@ export default function ProfilePage() {
               <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>{value}</span>
             </div>
           ))}
+
+          {/* Editable Display Name */}
+          <div style={{ padding: 'var(--space-2) 0', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--fs-sm)' }}>Display Name</span>
+              {!editingDisplayName ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500 }}>{profile.display_name || '—'}</span>
+                  <button
+                    onClick={() => { setEditingDisplayName(true); setDisplayNameInput(profile.display_name || ''); setDisplayNameMsg(null); }}
+                    style={{
+                      background: 'none', border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--color-cyan)',
+                      cursor: 'pointer', padding: '2px 8px', fontSize: '0.75rem',
+                      transition: 'all 0.2s',
+                    }}
+                  >✎ Edit</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    className="form-input"
+                    value={displayNameInput}
+                    onChange={e => setDisplayNameInput(e.target.value)}
+                    placeholder="Your leaderboard name"
+                    style={{ padding: '4px 8px', fontSize: '0.85rem', width: 160 }}
+                    maxLength={30}
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveDisplayName(); if (e.key === 'Escape') setEditingDisplayName(false); }}
+                  />
+                  <button
+                    onClick={handleSaveDisplayName}
+                    disabled={savingDisplayName}
+                    style={{
+                      background: 'var(--gradient-blue-cyan)', border: 'none',
+                      borderRadius: 'var(--radius-sm)', color: '#000',
+                      cursor: 'pointer', padding: '4px 10px', fontSize: '0.75rem',
+                      fontWeight: 700,
+                    }}
+                  >{savingDisplayName ? '...' : 'Save'}</button>
+                  <button
+                    onClick={() => setEditingDisplayName(false)}
+                    style={{
+                      background: 'none', border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)',
+                      cursor: 'pointer', padding: '4px 8px', fontSize: '0.75rem',
+                    }}
+                  >✕</button>
+                </div>
+              )}
+            </div>
+            {displayNameMsg && (
+              <div style={{
+                fontSize: '0.75rem', marginTop: 4, textAlign: 'right',
+                color: displayNameMsg.type === 'error' ? 'var(--color-error)' : 'var(--color-success)',
+              }}>{displayNameMsg.text}</div>
+            )}
+            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)', marginTop: 2, textAlign: 'right' }}>
+              This is the name shown on the leaderboard
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-        <Link href="/predictions" className="btn btn-primary">Edit Predictions</Link>
+        <Link href="/matches" className="btn btn-primary">Edit Predictions</Link>
         <Link href="/leaderboard" className="btn btn-secondary">Leaderboard</Link>
         <button className="btn btn-ghost" onClick={() => { logout(); router.push('/'); }} style={{ color: 'var(--color-error)' }}>Logout</button>
       </div>

@@ -59,15 +59,12 @@ export default function LeaderboardPage() {
     setLoading(true);
     fetchLeaderboard();
 
-    // Realtime: refresh when user points or predictions change
+    // Realtime: refresh when match scores or user points change
     let channel = null;
     if (supabase) {
       channel = supabase
         .channel('leaderboard-realtime')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
-          fetchLeaderboard();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => {
           fetchLeaderboard();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
@@ -76,7 +73,13 @@ export default function LeaderboardPage() {
         .subscribe();
     }
 
-    return () => { if (channel) supabase?.removeChannel(channel); };
+    // Polling fallback every 30s
+    const pollInterval = setInterval(fetchLeaderboard, 30000);
+
+    return () => {
+      if (channel) supabase?.removeChannel(channel);
+      clearInterval(pollInterval);
+    };
   }, [activeTab]);
 
   const filtered = leaders.filter(u => {
