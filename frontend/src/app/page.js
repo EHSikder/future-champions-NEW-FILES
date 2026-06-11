@@ -192,7 +192,7 @@ export default function HomePage() {
             color: '#FFD700',
             textTransform: 'uppercase',
           }}>
-            WIN $1,000
+            WIN $1,000 Cash
           </div>
 
           {/* Description */}
@@ -404,7 +404,7 @@ export default function HomePage() {
               background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent', backgroundClip: 'text',
               letterSpacing: '0.05em', lineHeight: 1, marginBottom: 'var(--space-2)',
-            }}>$1,000</div>
+            }}>$1,000 CASH</div>
             <div style={{
               fontFamily: 'var(--font-hero)', fontSize: '1.5rem', letterSpacing: '0.15em',
               color: 'rgba(255,255,255,0.7)', marginBottom: 'var(--space-3)',
