@@ -26,8 +26,8 @@ router.get('/', async (req, res, next) => {
     if (!roundGroup || !ROUND_GROUPS[roundGroup]) {
       const { data: users, error } = await supabase
         .from('users')
-        .select('id, full_name, total_points, has_submitted_prediction')
-        .eq('has_submitted_prediction', true)
+        .select('id, full_name, display_name, total_points')
+        .not('full_name', 'is', null)
         .order('total_points', { ascending: false })
         .limit(limit);
 

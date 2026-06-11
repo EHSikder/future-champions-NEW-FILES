@@ -59,9 +59,10 @@ export default function LeaderboardPage() {
     return () => clearInterval(interval);
   }, [activeTab]);
 
-  const filtered = leaders.filter(u =>
-    u.full_name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = leaders.filter(u => {
+    const name = u.display_name || u.full_name || '';
+    return name.toLowerCase().includes(search.toLowerCase());
+  });
 
   const sorted = [...filtered].sort((a, b) => a.rank - b.rank);
   const topThree = sorted.filter(u => u.rank <= 3);
@@ -98,10 +99,10 @@ export default function LeaderboardPage() {
           fontWeight: 800, fontSize: isCenter ? '1rem' : '0.85rem', color: '#fff',
           boxShadow: `0 0 20px ${c.border}`, marginBottom: 8
         }}>
-          {getInitials(userData.full_name)}
+          {getInitials(userData.display_name || userData.full_name)}
         </div>
         <div style={{ fontWeight: 700, fontSize: isCenter ? '0.95rem' : '0.85rem', color: '#fff', textAlign: 'center', marginBottom: 2 }}>
-          {getShortName(userData.full_name)}
+          {getShortName(userData.display_name || userData.full_name)}
         </div>
         <div style={{ fontFamily: 'var(--font-hero)', fontSize: isCenter ? '1.5rem' : '1.2rem', color: c.text, letterSpacing: '0.05em', marginBottom: 8 }}>
           {userData.total_points} pts
@@ -242,10 +243,10 @@ export default function LeaderboardPage() {
                         {entry.rank}
                       </div>
                       <div className="lb-avatar">
-                        {getInitials(entry.full_name)}
+                        {getInitials(entry.display_name || entry.full_name)}
                       </div>
                       <div className="lb-name">
-                        {entry.full_name}
+                        {entry.display_name || entry.full_name}
                         {isMe && <span style={{ color: 'var(--color-cyan)', fontSize: '0.8rem', marginLeft: 6 }}>(You)</span>}
                       </div>
                       <div className="lb-points">
