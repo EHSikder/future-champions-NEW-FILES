@@ -51,13 +51,6 @@ const PRIZES = [
     desc: 'Quarter & Semi-Finals winner',
     icon: '🔥',
   },
-  {
-    id: 'r4',
-    label: 'Round 4',
-    amount: 'CASH PRIZE',
-    desc: 'Final stage top predictor',
-    icon: '👑',
-  },
 ];
 
 export default function HomePage() {
@@ -421,8 +414,8 @@ export default function HomePage() {
             {[
               { label: 'Round 1', desc: 'Group Stage', icon: '⚽', color: '#0096FF' },
               { label: 'Round 2', desc: 'R32 & Round of 16', icon: '🎯', color: '#7800C8' },
-              { label: 'Round 3', desc: 'Quarter & Semi-Finals', icon: '🔥', color: '#FF6400' },
-              { label: 'Round 4', desc: 'Final Stage', icon: '👑', color: '#FFD700' },
+              { label: 'Round 3', desc: 'Quarter & Semi-Finals', icon: '🔥', color: '#FF6400' },          
+              
             ].map((prize, i) => (
               <div key={i} style={{
                 background: 'var(--color-surface-2)',
