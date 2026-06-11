@@ -24,7 +24,7 @@ export default function LoginPage() {
       if (!user?.full_name || !user?.favorite_team_id) {
         router.push('/complete-profile');
       } else {
-        router.push('/predictions');
+        router.push('/matches');
       }
     }
   }, [isAuthenticated, loading, user, router]);
@@ -49,7 +49,7 @@ export default function LoginPage() {
       
       if (res.success) {
         login(res.data.token, res.data.user);
-        router.push('/predictions');
+        router.push('/matches');
       }
     } catch (err) {
       const msg = err.data?.message || err.message || 'Failed to login with Google.';
@@ -89,7 +89,7 @@ export default function LoginPage() {
       
       if (res.success) {
         login(res.data.token, res.data.user);
-        router.push('/predictions');
+        router.push('/matches');
       }
     } catch (err) {
       const code = err.code || '';

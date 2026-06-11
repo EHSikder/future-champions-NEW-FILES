@@ -27,7 +27,7 @@ export default function SignupPage() {
       if (!user?.full_name || !user?.favorite_team_id) {
         router.push('/complete-profile');
       } else {
-        router.push('/predictions');
+        router.push('/matches');
       }
     }
   }, [isAuthenticated, loading, user, router]);
@@ -58,7 +58,7 @@ export default function SignupPage() {
           router.push('/complete-profile');
         } else {
           login(res.data.token, userData);
-          router.push('/predictions');
+          router.push('/matches');
         }
       }
     } catch (err) {
@@ -158,7 +158,7 @@ export default function SignupPage() {
               router.push('/complete-profile');
             } else {
               login(res.data.token, userData);
-              router.push('/predictions');
+              router.push('/matches');
             }
           }
         } else {

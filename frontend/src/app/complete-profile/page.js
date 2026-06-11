@@ -41,7 +41,7 @@ export default function CompleteProfilePage() {
     if (!loading) {
       if (user) {
         if (user.full_name && user.favorite_team_id) {
-          router.push('/predictions');
+          router.push('/matches');
         } else {
           setFormData(prev => ({
             ...prev,
@@ -138,7 +138,7 @@ export default function CompleteProfilePage() {
       sessionStorage.removeItem('temp_jwt_token');
       sessionStorage.removeItem('temp_user_info');
       sessionStorage.setItem('fc_new_signup', 'true');
-      router.push('/predictions');
+      router.push('/matches');
     } catch (err) {
       setError(err.data?.message || err.message || 'Failed to complete profile');
       setSubmitting(false);
