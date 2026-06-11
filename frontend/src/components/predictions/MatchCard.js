@@ -51,8 +51,8 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
   };
   const badge = getStatusBadge();
 
-  const kickoff = match.kickoff_time
     ? new Date(match.kickoff_time).toLocaleString('en-GB', {
+        timeZone: 'Asia/Kuwait',
         month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
       })
