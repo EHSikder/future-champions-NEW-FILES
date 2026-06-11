@@ -27,7 +27,7 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body className={inter.variable}>
+      <body>
         <LanguageProvider>
           <AuthProvider>
             <ConditionalHeader />
