@@ -135,9 +135,14 @@ export default function CompleteProfilePage() {
       });
 
       login(res.data.token, res.data.user);
-      sessionStorage.removeItem('temp_jwt_token');
-      sessionStorage.removeItem('temp_user_info');
       sessionStorage.setItem('fc_new_signup', 'true');
+      
+      // Delay removing session storage to prevent premature redirect to /login
+      setTimeout(() => {
+        sessionStorage.removeItem('temp_jwt_token');
+        sessionStorage.removeItem('temp_user_info');
+      }, 1000);
+      
       router.push('/matches');
     } catch (err) {
       setError(err.data?.message || err.message || 'Failed to complete profile');
