@@ -23,11 +23,10 @@ const ROUND_TABS = [
   { id: 'group_stage', label: 'Round 1', desc: 'Group Stage', icon: '⚽' },
   { id: 'round_of_32_16', label: 'Round 2', desc: 'R32 & R16', icon: '🎯' },
   { id: 'quarterfinal_semifinal', label: 'Round 3', desc: 'QF & SF', icon: '🔥' },
-  { id: 'final', label: 'Round 4', desc: 'Final', icon: '👑' },
 ];
 
 const ROUND_PRIZE = {
-  overall: '$1,000 Cash',
+  overall: 'Cash Prizr',
   group_stage: 'Voucher Prize',
   round_of_32_16: 'Voucher Prize',
   quarterfinal_semifinal: 'Voucher Prize',
