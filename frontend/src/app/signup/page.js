@@ -53,7 +53,7 @@ export default function SignupPage() {
       if (res.success) {
         const userData = res.data.user;
         if (!userData.profile_complete) {
-          sessionStorage.setItem('temp_firebase_token', token);
+          sessionStorage.setItem('temp_jwt_token', res.data.token);
           sessionStorage.setItem('temp_user_info', JSON.stringify(userData));
           router.push('/complete-profile');
         } else {
@@ -153,7 +153,7 @@ export default function SignupPage() {
           if (res.success) {
             const userData = res.data.user;
             if (!userData.profile_complete) {
-              sessionStorage.setItem('temp_firebase_token', token);
+              sessionStorage.setItem('temp_jwt_token', res.data.token);
               sessionStorage.setItem('temp_user_info', JSON.stringify(userData));
               router.push('/complete-profile');
             } else {

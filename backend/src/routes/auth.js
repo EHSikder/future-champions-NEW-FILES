@@ -118,13 +118,17 @@ router.get('/me', auth, async (req, res, next) => {
  */
 router.put('/profile', auth, async (req, res, next) => {
   try {
-    const { full_name, civil_id, email, favorite_team_id } = req.body;
+    const { full_name, civil_id, email, favorite_team_id, display_name, company_name, mobile_number, hear_about_us } = req.body;
     const updates = {};
 
-    if (full_name   !== undefined) updates.full_name        = full_name;
-    if (civil_id    !== undefined) updates.civil_id         = civil_id;
-    if (email       !== undefined) updates.email            = email;
+    if (full_name        !== undefined) updates.full_name        = full_name;
+    if (civil_id         !== undefined) updates.civil_id         = civil_id;
+    if (email            !== undefined) updates.email            = email;
     if (favorite_team_id !== undefined) updates.favorite_team_id = favorite_team_id;
+    if (display_name     !== undefined) updates.display_name     = display_name;
+    if (company_name     !== undefined) updates.company_name     = company_name;
+    if (mobile_number    !== undefined) updates.mobile_number    = mobile_number;
+    if (hear_about_us    !== undefined) updates.hear_about_us    = hear_about_us;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ success: false, message: 'No fields to update.' });

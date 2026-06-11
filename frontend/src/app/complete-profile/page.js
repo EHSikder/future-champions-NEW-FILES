@@ -111,8 +111,8 @@ export default function CompleteProfilePage() {
     setError(null);
 
     try {
-      const token = sessionStorage.getItem('temp_firebase_token');
-      if (!token) {
+      const jwtToken = sessionStorage.getItem('temp_jwt_token');
+      if (!jwtToken) {
         setError('Session expired. Please try signing up again.');
         setSubmitting(false);
         return;
@@ -122,8 +122,7 @@ export default function CompleteProfilePage() {
         ? `Other: ${formData.hearAboutOther.trim()}`
         : formData.hearAbout;
 
-      const res = await api.post('/api/auth/complete-profile', {
-        token,
+      const res = await api.put('/api/auth/profile', {
         mobile_number: formData.mobile_number,
         civil_id: formData.civil_id.trim() || null,
         favorite_team_id: formData.favoriteTeamId,
@@ -131,10 +130,12 @@ export default function CompleteProfilePage() {
         display_name: formData.displayName,
         company_name: formData.companyName.trim(),
         hear_about_us: hearAboutFinal,
+      }, {
+        headers: { Authorization: `Bearer ${jwtToken}` }
       });
 
       login(res.data.token, res.data.user);
-      sessionStorage.removeItem('temp_firebase_token');
+      sessionStorage.removeItem('temp_jwt_token');
       sessionStorage.removeItem('temp_user_info');
       sessionStorage.setItem('fc_new_signup', 'true');
       router.push('/predictions');
