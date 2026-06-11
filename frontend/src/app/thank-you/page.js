@@ -92,6 +92,6 @@ export default function ThankYouPage() {
         </div>
       </div>
     </div>
+ </div>
   );
-}    </div>
-  );
+}
