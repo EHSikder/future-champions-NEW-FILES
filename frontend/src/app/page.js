@@ -54,7 +54,7 @@ const PRIZES = [
   {
     id: 'r4',
     label: 'Round 4',
-    amount: 'Voucher',
+    amount: 'CASH PRIZE',
     desc: 'Final stage top predictor',
     icon: '👑',
   },
