@@ -583,18 +583,7 @@ export default function HomePage() {
               position: 'absolute', inset: 0,
               background: 'linear-gradient(135deg, rgba(0,0,0,0.4) 0%, transparent 100%)',
               display: 'flex', alignItems: 'center', padding: 'var(--space-8)',
-            }}>
-              <div>
-                <div style={{
-                  fontFamily: 'var(--font-hero)', fontSize: '1.8rem', letterSpacing: '0.08em',
-                  background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                  marginBottom: 4,
-                }}>JOIN THE CHALLENGE</div>
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
-                  Become a Future Champion today
-                </p>
-              </div>
+            }}>              
             </div>
           </div>
 
