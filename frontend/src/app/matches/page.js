@@ -190,7 +190,7 @@ export default function MatchesPage() {
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
-      <div className="container" style={{ maxWidth: 720, padding: 'var(--space-6) var(--space-4)' }}>
+      <div className="container" style={{ maxWidth: 720, padding: 'var(--space-6) var(--space-4)', paddingBottom: '120px' }}>
 
         {/* Promo Video Banner */}
         <div style={{
@@ -348,13 +348,28 @@ export default function MatchesPage() {
           );
         })}
 
-        {/* Save button */}
-        <div style={{ textAlign: 'center', padding: 'var(--space-8) 0' }}>
+        {/* Floating Save button */}
+        <div style={{ 
+          position: 'fixed', 
+          bottom: 'max(24px, env(safe-area-inset-bottom))', 
+          left: 0, 
+          right: 0, 
+          textAlign: 'center', 
+          zIndex: 999,
+          pointerEvents: 'none'
+        }}>
           <button
             className="btn btn-primary btn-lg"
             onClick={handleSubmit}
             disabled={submitting || !hasUnsavedChanges}
-            style={{ minWidth: 260 }}
+            style={{ 
+              minWidth: 260,
+              pointerEvents: 'auto',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 150, 255, 0.4)',
+              transform: hasUnsavedChanges ? 'translateY(0)' : 'translateY(100px)',
+              opacity: hasUnsavedChanges ? 1 : 0,
+              transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}
           >
             {submitting ? 'SAVING...' : 'SAVE PREDICTIONS'}
           </button>
