@@ -1,24 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Prevent ESLint errors from failing the Vercel build
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Prevent TypeScript errors from failing the Vercel build
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
     remotePatterns: [
+      { protocol: 'https', hostname: 'flagcdn.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'media.api-sports.io', pathname: '/**' },
       { protocol: 'https', hostname: '**' },
     ],
   },
   async rewrites() {
     return [
-      {
-        source: '/predictions',
-        destination: '/matches',
-      },
+      { source: '/predictions', destination: '/matches' },
     ];
   },
 };
