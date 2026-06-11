@@ -59,25 +59,31 @@ export default function LeaderboardPage() {
     setLoading(true);
     fetchLeaderboard();
 
-    // Realtime: refresh when match scores or user points change
     let channel = null;
+    let debounceTimer = null;
+
+    // Debounced fetch — waits 5s after last realtime event
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(fetchLeaderboard, 5000);
+    };
+
+    // Realtime: refresh when matches change (triggers scoring)
     if (supabase) {
       channel = supabase
         .channel('leaderboard-realtime')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
-          fetchLeaderboard();
-        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
-          fetchLeaderboard();
+          debouncedFetch();
         })
         .subscribe();
     }
 
-    // Polling fallback every 30s
-    const pollInterval = setInterval(fetchLeaderboard, 30000);
+    // Gentle polling fallback every 2 minutes
+    const pollInterval = setInterval(fetchLeaderboard, 120000);
 
     return () => {
       if (channel) supabase?.removeChannel(channel);
+      if (debounceTimer) clearTimeout(debounceTimer);
       clearInterval(pollInterval);
     };
   }, [activeTab]);

@@ -36,6 +36,8 @@ export default function MatchesPage() {
     if (!isAuthenticated || !user?.id) return;
 
     let channel = null;
+    let debounceTimer = null;
+    let pollInterval = null;
 
     const fetchData = async () => {
       setLoading(true);
@@ -104,29 +106,31 @@ export default function MatchesPage() {
       }
     };
 
+    // Debounced fetch — waits 5s after last realtime event before fetching
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(fetchData, 5000);
+    };
+
     fetchData();
 
-    // Realtime subscriptions for matches + users
+    // Realtime: only listen for match changes (scores, status)
     if (supabase) {
       channel = supabase
         .channel('matches-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
-          fetchData();
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
-          if (payload.new?.id === user?.id) {
-            fetchData();
-          }
+          debouncedFetch();
         })
         .subscribe();
     }
 
-    // Polling fallback every 30s in case realtime isn't enabled for some tables
-    const pollInterval = setInterval(fetchData, 30000);
+    // Gentle polling fallback every 2 minutes
+    pollInterval = setInterval(fetchData, 120000);
 
     return () => {
       if (channel) supabase?.removeChannel(channel);
-      clearInterval(pollInterval);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, [isAuthenticated, user?.id]);
 

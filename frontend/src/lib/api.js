@@ -13,13 +13,20 @@ class ApiClient {
     return null;
   }
 
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, _retryCount = 0) {
     const url = `${this.baseUrl}${endpoint}`;
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     const token = options.adminAuth ? this.getAdminToken() : this.getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const response = await fetch(url, { ...options, headers });
+
+    // Retry on 429 (Too Many Requests) — back off and try again
+    if (response.status === 429 && _retryCount < 3) {
+      const waitMs = Math.min(2000 * Math.pow(2, _retryCount), 10000); // 2s, 4s, 8s
+      await new Promise(r => setTimeout(r, waitMs));
+      return this.request(endpoint, options, _retryCount + 1);
+    }
 
     if (
       response.headers.get('content-type')?.includes('application/vnd.openxmlformats') ||
