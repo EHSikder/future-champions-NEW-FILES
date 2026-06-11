@@ -1,32 +1,35 @@
 const cron = require('node-cron');
-const axios = require('axios');
 const supabase = require('../config/database');
+const {
+  fetchAllFixtures,
+  fetchLiveScores,
+  parseFixture,
+  parseLiveScore,
+  getWinnerApiId,
+} = require('../services/worldCupApiService');
 
-const API_BASE = process.env.WORLDCUP_API_BASE_URL || 'https://api.football-data.org/v4';
-const API_KEY  = process.env.WORLDCUP_API_KEY || '';
-// FIFA World Cup 2026 competition ID on football-data.org
-const COMPETITION_ID = process.env.WORLDCUP_COMPETITION_ID || 'WC';
+const API_KEY = process.env.WORLDCUP_API_KEY || process.env.API_FOOTBALL_KEY || '';
 
 /**
- * Map an API-Football match status string to our internal status enum.
+ * Look up the internal UUID for a team by its worldcupapi_id.
+ * Returns null if no match is found.
  */
-function mapStatus(apiStatus) {
-  const map = {
-    SCHEDULED: 'scheduled',
-    TIMED: 'scheduled',
-    IN_PLAY: 'live',
-    PAUSED: 'halftime',
-    FINISHED: 'finished',
-    SUSPENDED: 'postponed',
-    POSTPONED: 'postponed',
-    CANCELLED: 'postponed',
-    AWARDED: 'finished',
-  };
-  return map[apiStatus] || 'scheduled';
+async function resolveTeamUuid(apiTeamId) {
+  if (!apiTeamId) return null;
+
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('worldcupapi_id', apiTeamId)
+    .single();
+
+  if (error || !data) return null;
+  return data.id;
 }
 
 /**
- * Core sync logic — fetches matches from the API and upserts them.
+ * Core sync logic — fetches fixtures + live scores from WorldCupAPI
+ * and upserts them into the matches table.
  * Exported so the admin route can trigger it manually.
  */
 async function runSync() {
@@ -41,61 +44,140 @@ async function runSync() {
       return;
     }
 
-    const { data: apiData } = await axios.get(
-      `${API_BASE}/competitions/${COMPETITION_ID}/matches`,
-      { headers: { 'X-Auth-Token': API_KEY }, timeout: 10_000 }
-    );
+    // ── 1. Sync fixtures (scheduled matches) ──────────────────
+    let fixtures = [];
+    try {
+      fixtures = await fetchAllFixtures();
+      console.log(`[SyncMatches] Fetched ${fixtures.length} fixtures from API.`);
+    } catch (err) {
+      console.error('[SyncMatches] Failed to fetch fixtures:', err.message);
+    }
 
-    const matches = apiData?.matches || [];
-    console.log(`[SyncMatches] Fetched ${matches.length} matches from API.`);
+    for (const raw of fixtures) {
+      try {
+        const parsed = parseFixture(raw);
 
-    for (const m of matches) {
-      const payload = {
-        api_match_id:    String(m.id),
-        match_number:    m.matchday || m.id,
-        round:           (m.stage || 'group_stage').toLowerCase().replace(/ /g, '_'),
-        kickoff_time:    m.utcDate,
-        status:          mapStatus(m.status),
-        home_team_id:    m.homeTeam?.id ? String(m.homeTeam.id) : null,
-        away_team_id:    m.awayTeam?.id ? String(m.awayTeam.id) : null,
-        home_placeholder: m.homeTeam?.name || null,
-        away_placeholder: m.awayTeam?.name || null,
-        home_score:      m.score?.fullTime?.home ?? null,
-        away_score:      m.score?.fullTime?.away ?? null,
-        home_score_ht:   m.score?.halfTime?.home ?? null,
-        away_score_ht:   m.score?.halfTime?.away ?? null,
-        updated_at:      new Date().toISOString(),
-      };
+        const homeTeamId = await resolveTeamUuid(parsed.homeTeamApiId);
+        const awayTeamId = await resolveTeamUuid(parsed.awayTeamApiId);
 
-      const { error } = await supabase
-        .from('matches')
-        .upsert(payload, { onConflict: 'api_match_id' });
+        // Find the match in our DB by worldcupapi_fixture_id
+        const { data: existingMatch } = await supabase
+          .from('matches')
+          .select('id, match_number')
+          .eq('worldcupapi_fixture_id', parsed.fixtureId)
+          .single();
 
-      if (error) {
-        console.error('[SyncMatches] Upsert error for match', m.id, error.message);
-      } else {
-        matchesUpdated++;
+        if (existingMatch) {
+          // Update existing match
+          const updates = {
+            kickoff_time: parsed.kickoffTime,
+            updated_at: new Date().toISOString(),
+          };
+          if (homeTeamId) updates.home_team_id = homeTeamId;
+          if (awayTeamId) updates.away_team_id = awayTeamId;
+          if (raw.home?.name) updates.home_placeholder = raw.home.name;
+          if (raw.away?.name) updates.away_placeholder = raw.away.name;
+
+          const { error } = await supabase
+            .from('matches')
+            .update(updates)
+            .eq('id', existingMatch.id);
+
+          if (error) {
+            console.error('[SyncMatches] Update error for fixture', parsed.fixtureId, error.message);
+          } else {
+            matchesUpdated++;
+          }
+        }
+        // Note: we don't auto-create matches from the API because match_number
+        // and round are set manually in the database schema
+      } catch (err) {
+        console.error('[SyncMatches] Error processing fixture:', err.message);
       }
     }
 
-    // Log successful sync
-    await supabase.from('sync_log').insert({
+    // ── 2. Sync live scores ───────────────────────────────────
+    let liveMatches = [];
+    try {
+      liveMatches = await fetchLiveScores();
+      console.log(`[SyncMatches] Fetched ${liveMatches.length} live matches from API.`);
+    } catch (err) {
+      console.error('[SyncMatches] Failed to fetch live scores:', err.message);
+    }
+
+    for (const raw of liveMatches) {
+      try {
+        const parsed = parseLiveScore(raw);
+
+        // Find the match by worldcupapi_fixture_id
+        const { data: existingMatch } = await supabase
+          .from('matches')
+          .select('id, match_number, status')
+          .eq('worldcupapi_fixture_id', parsed.fixtureId)
+          .single();
+
+        if (!existingMatch) {
+          console.warn(`[SyncMatches] No DB match for fixture_id ${parsed.fixtureId} — skipping.`);
+          continue;
+        }
+
+        const winnerApiId = getWinnerApiId(parsed);
+        const winnerTeamId = await resolveTeamUuid(winnerApiId);
+
+        const updates = {
+          status: parsed.status,
+          home_score: parsed.homeScore,
+          away_score: parsed.awayScore,
+          home_extra_time_score: parsed.homeExtraTimeScore,
+          away_extra_time_score: parsed.awayExtraTimeScore,
+          home_penalty_score: parsed.homePenaltyScore,
+          away_penalty_score: parsed.awayPenaltyScore,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (winnerTeamId) updates.winner_team_id = winnerTeamId;
+
+        const { error } = await supabase
+          .from('matches')
+          .update(updates)
+          .eq('id', existingMatch.id);
+
+        if (error) {
+          console.error('[SyncMatches] Live update error for match', existingMatch.match_number, error.message);
+        } else {
+          matchesUpdated++;
+        }
+      } catch (err) {
+        console.error('[SyncMatches] Error processing live match:', err.message);
+      }
+    }
+
+    // ── 3. Log successful sync ────────────────────────────────
+    // sync_log schema: status IN ('running','completed','failed'), column is `errors` not `error_message`
+    const { error: logError } = await supabase.from('sync_log').insert({
       started_at:      startedAt,
       completed_at:    new Date().toISOString(),
-      status:          'success',
+      status:          'completed',
       matches_updated: matchesUpdated,
     });
+    if (logError) console.error('[SyncMatches] Failed to write sync_log:', logError.message);
 
-    console.log(`[SyncMatches] Done — ${matchesUpdated} matches upserted.`);
+    console.log(`[SyncMatches] Done — ${matchesUpdated} matches updated.`);
   } catch (err) {
     console.error('[SyncMatches] Sync failed:', err.message);
 
-    await supabase.from('sync_log').insert({
-      started_at:   startedAt,
-      completed_at: new Date().toISOString(),
-      status:       'error',
-      error_message: err.message,
-    }).catch(() => {});
+    // Log failed sync — wrapped in try/catch because Supabase thenable
+    // does not have a .catch() method in v2
+    try {
+      await supabase.from('sync_log').insert({
+        started_at:   startedAt,
+        completed_at: new Date().toISOString(),
+        status:       'failed',
+        errors:       err.message,
+      });
+    } catch (_) {
+      // ignore logging failures
+    }
   }
 }
 

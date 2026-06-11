@@ -210,7 +210,7 @@ router.post('/lock-round', adminAuth, lockRoundRules, validate, async (req, res,
           .from('predictions')
           .update({
             is_locked: true,
-            locked_reason: 'admin_lock',
+            locked_reason: 'admin_locked',
           })
           .in('match_number', matchNumbers);
 

@@ -1,3 +1,6 @@
+// Load environment variables FIRST — before any other module reads process.env
+require('./config/env');
+
 const express     = require('express');
 const cors        = require('cors');
 const helmet      = require('helmet');
@@ -17,12 +20,33 @@ const mcqRoutes           = require('./routes/mcq');
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
+// ── Trust proxy (required for Render / any reverse-proxy) ────
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+app.set('trust proxy', 1);
+
 // ── Middleware ───────────────────────────────────────────────
 app.use(helmet());
+
+// Build the allowed origins list
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000'];
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
+
+// Explicitly handle OPTIONS preflight for all routes
+app.options('*', cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(rateLimit);
 

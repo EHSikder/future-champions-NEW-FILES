@@ -25,21 +25,22 @@ async function sendUpcomingMatchNotifications() {
     const now    = new Date();
     const in30   = new Date(now.getTime() + 30 * 60 * 1000);
 
-    // Find matches starting in ~30 min that haven't been notified yet
+    // Find matches starting in ~30 min that are still scheduled
+    // Schema doesn't have a `notification_sent` column, so we track by status
     const { data: upcomingMatches, error: matchError } = await supabase
       .from('matches')
       .select('match_number, round, home_placeholder, away_placeholder, kickoff_time')
       .eq('status', 'scheduled')
-      .eq('notification_sent', false)
       .gte('kickoff_time', now.toISOString())
       .lte('kickoff_time', in30.toISOString());
 
     if (matchError || !upcomingMatches?.length) return;
 
     // Fetch all push subscriptions
+    // Schema columns: id, user_id, endpoint, p256dh, auth_key
     const { data: subscriptions, error: subError } = await supabase
       .from('push_subscriptions')
-      .select('id, subscription');
+      .select('id, user_id, endpoint, p256dh, auth_key');
 
     if (subError || !subscriptions?.length) return;
 
@@ -50,24 +51,30 @@ async function sendUpcomingMatchNotifications() {
         url:   '/matches',
       });
 
-      const sends = subscriptions.map(async ({ id, subscription }) => {
+      const sends = subscriptions.map(async ({ id, endpoint, p256dh, auth_key }) => {
         try {
-          await webpush.sendNotification(subscription, payload);
+          // Reconstruct the PushSubscription object from stored columns
+          const pushSub = {
+            endpoint,
+            keys: {
+              p256dh: p256dh || '',
+              auth: auth_key || '',
+            },
+          };
+          await webpush.sendNotification(pushSub, payload);
         } catch (err) {
           if (err.statusCode === 410) {
             // Subscription expired — remove it
-            await supabase.from('push_subscriptions').delete().eq('id', id).catch(() => {});
+            try {
+              await supabase.from('push_subscriptions').delete().eq('id', id);
+            } catch (_) {
+              // ignore cleanup errors
+            }
           }
         }
       });
 
       await Promise.allSettled(sends);
-
-      // Mark match as notified
-      await supabase
-        .from('matches')
-        .update({ notification_sent: true })
-        .eq('match_number', match.match_number);
 
       console.log(`[NotificationCron] Notified for match #${match.match_number}.`);
     }

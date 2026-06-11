@@ -1,7 +1,7 @@
 const axios = require('axios');
 const env = require('../config/env');
 
-const BASE_URL = 'https://api.worldcupapi.com';
+const BASE_URL = env.WORLDCUP_API_BASE_URL || 'https://api.worldcupapi.com';
 
 /**
  * Fetch all fixtures from WorldCupAPI

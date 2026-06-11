@@ -19,9 +19,10 @@ router.post('/subscribe', auth, async (req, res, next) => {
       .from('push_subscriptions')
       .upsert(
         {
-          user_id:      req.user.userId,
-          endpoint:     subscription.endpoint,
-          subscription: subscription,
+          user_id:   req.user.userId,
+          endpoint:  subscription.endpoint,
+          p256dh:    subscription.keys?.p256dh || null,
+          auth_key:  subscription.keys?.auth || null,
         },
         { onConflict: 'endpoint' }
       );

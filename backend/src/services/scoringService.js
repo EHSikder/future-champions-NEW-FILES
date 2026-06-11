@@ -90,7 +90,7 @@ if (drawMatch || teamMatch) {
       .update({
         points_earned: points,
         is_locked: true,
-        locked_reason: 'result_confirmed',
+        locked_reason: 'match_started',
       })
       .eq('id', pred.id);
 
