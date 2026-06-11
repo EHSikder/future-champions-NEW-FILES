@@ -25,7 +25,7 @@ const PRIZES = [
   {
     id: 'grand',
     label: 'Full Tournament',
-    amount: '$1,000',
+    amount: 'Cash Prize',
     desc: 'Top predictor across all rounds',
     isGrand: true,
     icon: '🏆',
@@ -192,7 +192,7 @@ export default function HomePage() {
             color: '#FFD700',
             textTransform: 'uppercase',
           }}>
-            WIN $1,000 Cash
+            WIN CASH PRIZE
           </div>
 
           {/* Description */}
@@ -404,13 +404,13 @@ export default function HomePage() {
               background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent', backgroundClip: 'text',
               letterSpacing: '0.05em', lineHeight: 1, marginBottom: 'var(--space-2)',
-            }}>$1,000 CASH</div>
+            }}>CASH PRIZE</div>
             <div style={{
               fontFamily: 'var(--font-hero)', fontSize: '1.5rem', letterSpacing: '0.15em',
               color: 'rgba(255,255,255,0.7)', marginBottom: 'var(--space-3)',
             }}>GRAND PRIZE — FULL TOURNAMENT</div>
             <p style={{ color: 'var(--color-text-muted)', maxWidth: 500, margin: '0 auto' }}>
-              The top predictor across the entire tournament takes home $1,000 cash prize.
+              The top predictor across the entire tournament takes home the grand cash prize.
             </p>
           </div>
 
@@ -592,7 +592,7 @@ export default function HomePage() {
             background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             marginBottom: 'var(--space-4)', letterSpacing: '0.05em',
-          }}>READY TO WIN $1,000 IN CASH?</h2>
+          }}>READY TO WIN CASH PRIZE?</h2>
           <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-8)', fontSize: 'var(--fs-lg)', lineHeight: 1.7 }}>
             Join the challenge, predict every match, unlock bonus rounds, and outsmart every competitor to claim the grand prize.
           </p>
