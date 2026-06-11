@@ -31,7 +31,6 @@ const ROUND_PRIZE = {
   group_stage: 'Voucher Prize',
   round_of_32_16: 'Voucher Prize',
   quarterfinal_semifinal: 'Voucher Prize',
-  final: 'Voucher Prize',
 };
 
 export default function LeaderboardPage() {
@@ -59,31 +58,25 @@ export default function LeaderboardPage() {
     setLoading(true);
     fetchLeaderboard();
 
+    // Realtime: refresh when match scores or user points change
     let channel = null;
-    let debounceTimer = null;
-
-    // Debounced fetch — waits 5s after last realtime event
-    const debouncedFetch = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(fetchLeaderboard, 5000);
-    };
-
-    // Realtime: refresh when matches change (triggers scoring)
     if (supabase) {
       channel = supabase
         .channel('leaderboard-realtime')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
+          fetchLeaderboard();
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
-          debouncedFetch();
+          fetchLeaderboard();
         })
         .subscribe();
     }
 
-    // Gentle polling fallback every 2 minutes
-    const pollInterval = setInterval(fetchLeaderboard, 120000);
+    // Polling fallback every 30s
+    const pollInterval = setInterval(fetchLeaderboard, 30000);
 
     return () => {
       if (channel) supabase?.removeChannel(channel);
-      if (debounceTimer) clearTimeout(debounceTimer);
       clearInterval(pollInterval);
     };
   }, [activeTab]);
@@ -222,7 +215,7 @@ export default function LeaderboardPage() {
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-dim)' }}>
                 {activeTab === 'overall'
-                  ? 'Top predictor across the full tournament wins $1,000'
+                  ? 'Top predictor across the full tournament wins a Cash Prize'
                   : `Top predictor of ${currentTabInfo?.desc} earns a voucher`}
               </div>
             </div>
