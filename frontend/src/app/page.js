@@ -116,7 +116,8 @@ export default function HomePage() {
         <div className="hero-content-circle">
           <div className="hero-badge">The Future Awaits</div>
 
-          <h1 className="hero-main-title">The Future is Closer Than You Think</h1>
+          <h1 className="hero-main-title">The Future is Closer 
+          Than You Think</h1>
           <div className="hero-sub-title">WIN $1,000</div>
 
           <p className="hero-desc">
