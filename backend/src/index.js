@@ -29,7 +29,7 @@ app.use(helmet());
 
 // Build the allowed origins list
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim().replace(/\/$/, ''))
   : ['http://localhost:3000'];
 
 app.use(cors({
