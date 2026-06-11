@@ -58,7 +58,6 @@ export default function SignupPage() {
           router.push('/complete-profile');
         } else {
           login(res.data.token, userData);
-          router.push('/matches');
         }
       }
     } catch (err) {
@@ -158,7 +157,6 @@ export default function SignupPage() {
               router.push('/complete-profile');
             } else {
               login(res.data.token, userData);
-              router.push('/matches');
             }
           }
         } else {

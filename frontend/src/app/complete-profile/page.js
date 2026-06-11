@@ -111,9 +111,9 @@ export default function CompleteProfilePage() {
     setError(null);
 
     try {
-      const jwtToken = sessionStorage.getItem('temp_jwt_token');
+      const jwtToken = sessionStorage.getItem('temp_jwt_token') || localStorage.getItem('fc_token');
       if (!jwtToken) {
-        setError('Session expired. Please try signing up again.');
+        setError('Session expired. Please try signing up again or logging in.');
         setSubmitting(false);
         return;
       }

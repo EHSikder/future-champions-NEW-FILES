@@ -49,7 +49,6 @@ export default function LoginPage() {
       
       if (res.success) {
         login(res.data.token, res.data.user);
-        router.push('/matches');
       }
     } catch (err) {
       const msg = err.data?.message || err.message || 'Failed to login with Google.';
@@ -89,7 +88,6 @@ export default function LoginPage() {
       
       if (res.success) {
         login(res.data.token, res.data.user);
-        router.push('/matches');
       }
     } catch (err) {
       const code = err.code || '';
