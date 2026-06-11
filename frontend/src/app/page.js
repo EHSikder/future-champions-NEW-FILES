@@ -77,8 +77,6 @@ export default function HomePage() {
 
   return (
     <>
-      // ── UPDATED HERO SECTION FOR YOUR page.js ──
-// Replace lines 80-154 in your page.js with this code
 
       {/* ── HERO: Full-screen video background ─────────────── */}
       <section className="hero-video-section" style={{
