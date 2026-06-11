@@ -178,15 +178,15 @@ export default function HomePage() {
           </h1>
 
           {/* Subtitle */}
-          <div style={{
-            fontSize: 'clamp(1rem, 2.5vw, 1.3rem)',
-            fontWeight: 600,
-            letterSpacing: '0.1em',
-            color: '#FFD700',
-            textTransform: 'uppercase',
-          }}>
-            WIN $1,000 Cash
-          </div>
+<div style={{
+  fontSize: 'clamp(1rem, 2.5vw, 1.3rem)',
+  fontWeight: 600,
+  letterSpacing: '0.1em',
+  color: '#FFD700',
+  textTransform: 'uppercase',
+}}>
+  WIN CASH PRIZE
+</div>
 
           {/* Description */}
           <p style={{
