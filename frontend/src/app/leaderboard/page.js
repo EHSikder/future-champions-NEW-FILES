@@ -27,7 +27,7 @@ const ROUND_TABS = [
 ];
 
 const ROUND_PRIZE = {
-  overall: 'Cash Prizr',
+  overall: 'Cash Prize',
   group_stage: 'Voucher Prize',
   round_of_32_16: 'Voucher Prize',
   quarterfinal_semifinal: 'Voucher Prize',
