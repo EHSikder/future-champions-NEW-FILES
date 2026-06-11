@@ -124,5 +124,6 @@ export default function ProfilePage() {
         <button className="btn btn-ghost" onClick={() => { logout(); router.push('/'); }} style={{ color: 'var(--color-error)' }}>Logout</button>
       </div>
     </div>
+    </div>
   );
 }
