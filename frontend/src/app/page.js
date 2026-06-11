@@ -592,7 +592,7 @@ export default function HomePage() {
             background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             marginBottom: 'var(--space-4)', letterSpacing: '0.05em',
-          }}>READY TO WIN $1,000?</h2>
+          }}>READY TO WIN $1,000 IN CASH?</h2>
           <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-8)', fontSize: 'var(--fs-lg)', lineHeight: 1.7 }}>
             Join the challenge, predict every match, unlock bonus rounds, and outsmart every competitor to claim the grand prize.
           </p>
