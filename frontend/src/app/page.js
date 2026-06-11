@@ -52,13 +52,6 @@ const PRIZES = [
     icon: '🔥',
   },
   {
-    id: 'r4',
-    label: 'Round 4',
-    amount: 'CASH PRIZE',
-    desc: 'Final stage top predictor',
-    icon: '👑',
-  },
-];
 
 export default function HomePage() {
   const [teams, setTeams] = useState([]);
