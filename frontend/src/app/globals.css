@@ -953,6 +953,48 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
 .font-hero { font-family: var(--font-hero); font-weight: 400; letter-spacing: 0.05em; }
 
 /* ── Mobile Nav visibility ────────────────────────────────── */
+
+/* ── Bottom Mobile Navigation ────────────────────────────── */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(5, 5, 8, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0,150,255,0.15);
+  z-index: var(--z-sticky);
+  align-items: stretch;
+  justify-content: space-around;
+}
+
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color var(--transition-fast);
+}
+
+.bottom-nav-item.active {
+  color: var(--color-electric-blue);
+}
+
+@media (max-width: 768px) {
+  .bottom-nav { display: flex; }
+  body { padding-bottom: 64px; }
+}
 @media (max-width: 768px) {
   .mobile-nav-overlay.open { display: block; }
   .mobile-nav.open { display: flex; }
