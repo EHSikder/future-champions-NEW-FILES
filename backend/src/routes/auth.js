@@ -94,7 +94,7 @@ router.post('/verify', async (req, res, next) => {
 
 /**
  * GET /api/auth/me
- * Return the currently authenticated user's profile.
+ * Return the currently authenticated user's profile + prediction stats.
  */
 router.get('/me', auth, async (req, res, next) => {
   try {
@@ -108,7 +108,50 @@ router.get('/me', auth, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    res.json({ success: true, data: user });
+    // ── Build prediction stats ──────────────────────────────
+    const { data: predictions, error: predError } = await supabase
+      .from('predictions')
+      .select('match_number, points_earned')
+      .eq('user_id', req.user.userId);
+
+    if (predError) throw predError;
+
+    const totalPredictions = predictions?.length || 0;
+    const correctPredictions = (predictions || []).filter(p => (p.points_earned || 0) > 0).length;
+
+    // Fetch the round for each predicted match, then group points by round
+    let pointsBreakdown = {};
+    if (totalPredictions > 0) {
+      const matchNumbers = predictions.map(p => p.match_number);
+
+      const { data: matches, error: matchError } = await supabase
+        .from('matches')
+        .select('match_number, round')
+        .in('match_number', matchNumbers);
+
+      if (matchError) throw matchError;
+
+      const roundByMatch = {};
+      (matches || []).forEach(m => { roundByMatch[m.match_number] = m.round; });
+
+      pointsBreakdown = predictions.reduce((acc, p) => {
+        const round = roundByMatch[p.match_number] || 'unknown';
+        acc[round] = (acc[round] || 0) + (p.points_earned || 0);
+        return acc;
+      }, {});
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...user,
+        stats: {
+          total_predictions: totalPredictions,
+          correct_predictions: correctPredictions,
+          points_breakdown: pointsBreakdown,
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }
