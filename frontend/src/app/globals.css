@@ -280,6 +280,7 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   content: ''; position: absolute; inset: 0;
   background: var(--gradient-scifi-card);
   opacity: 0; transition: opacity var(--transition-base);
+  pointer-events: none;
 }
 .card:hover { border-color: var(--color-border-bright); box-shadow: var(--glow-blue); }
 .card:hover::before { opacity: 1; }
