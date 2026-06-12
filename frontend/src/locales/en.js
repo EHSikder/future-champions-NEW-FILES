@@ -89,6 +89,7 @@ export const en = {
   lb_col_user: "Player",
   lb_grand_champion_title: "Grand Prize:",
   lb_grand_champion_subtitle: "Top predictor wins it all",
+  nav_mcq: 'MCQ',
 
   // Matches / Predictions
   matches_title: "MATCH PREDICTIONS",
