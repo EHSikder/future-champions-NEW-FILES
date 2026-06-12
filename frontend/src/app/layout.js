@@ -1,6 +1,7 @@
 import './globals.css';
 import ConditionalHeader from '@/components/layout/ConditionalHeader';
 import BottomNav from '@/components/layout/BottomNav';
+import ProfileCompletionGate from '@/components/ProfileCompletionGate';
 import Footer from '@/components/layout/Footer';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -35,6 +36,7 @@ export default function RootLayout({ children }) {
             <main>{children}</main>
             <Footer />
             <BottomNav />
+            <ProfileCompletionGate />
           </AuthProvider>
         </LanguageProvider>
       </body>
