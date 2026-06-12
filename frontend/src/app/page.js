@@ -71,8 +71,7 @@ export default function HomePage() {
   return (
     <>
 
-      {/* ── HERO: Full-screen video background ─────────────── */}
-      <section className="hero-video-section" style={{
+      {/* ── PROMO VIDEO TEASER (shown on subsequent visit) ──── */}
         position: 'relative',
         width: '100%',
         height: '100vh',
