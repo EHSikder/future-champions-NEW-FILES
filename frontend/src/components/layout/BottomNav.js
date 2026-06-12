@@ -47,24 +47,49 @@ export default function BottomNav() {
   const HIDDEN_PATHS = ['/login', '/signup', '/verify', '/complete-profile', '/admin-panel'];
   if (HIDDEN_PATHS.some(p => pathname.startsWith(p))) return null;
 
-  const items = [
-    { href: '/',            label: t('nav_home')        || 'Home',        Icon: HomeIcon },
-    { href: '/matches',     label: t('nav_matches')     || 'Predict',      Icon: PredictIcon },
-    { href: '/leaderboard', label: t('nav_leaderboard') || 'Leaders',      Icon: LeaderboardIcon },
-    { href: '/profile',     label: t('nav_profile')     || 'Profile',      Icon: ProfileIcon },
+  const leftItems = [
+    { href: '/',        label: t('nav_home')    || 'Home',    Icon: HomeIcon },
+    { href: '/matches', label: t('nav_matches') || 'Predict', Icon: PredictIcon },
   ];
+
+  const rightItems = [
+    { href: '/leaderboard', label: t('nav_leaderboard') || 'Leaders', Icon: LeaderboardIcon },
+    { href: '/profile',     label: t('nav_profile')     || 'Profile', Icon: ProfileIcon },
+  ];
+
+  const isActive = (href) =>
+    pathname === href || (href !== '/' && pathname.startsWith(href));
 
   return (
     <nav className="bottom-nav">
-      {items.map(({ href, label, Icon }) => {
-        const active = pathname === href || (href !== '/' && pathname.startsWith(href));
-        return (
-          <Link key={href} href={href} className={`bottom-nav-item ${active ? 'active' : ''}`}>
-            <Icon active={active} />
-            <span>{label}</span>
-          </Link>
-        );
-      })}
+      {leftItems.map(({ href, label, Icon }) => (
+        <Link key={href} href={href} className={`bottom-nav-item ${isActive(href) ? 'active' : ''}`}>
+          <Icon active={isActive(href)} />
+          <span>{label}</span>
+        </Link>
+      ))}
+
+      {/* ── MCQ center icon — image placeholder ──────────────── */}
+      <Link
+        href="/mcq"
+        className={`bottom-nav-item bottom-nav-mcq ${isActive('/mcq') ? 'active' : ''}`}
+      >
+        <img
+          src="/images/mcq-icon.png"
+          alt="MCQ"
+          className="bottom-nav-mcq-icon"
+          width="22"
+          height="22"
+        />
+        <span>{t('nav_mcq') || 'MCQ'}</span>
+      </Link>
+
+      {rightItems.map(({ href, label, Icon }) => (
+        <Link key={href} href={href} className={`bottom-nav-item ${isActive(href) ? 'active' : ''}`}>
+          <Icon active={isActive(href)} />
+          <span>{label}</span>
+        </Link>
+      ))}
     </nav>
   );
 }
