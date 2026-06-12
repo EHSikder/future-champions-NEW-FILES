@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SCORING_TABLE, GROUPS } from '@/lib/constants';
+import HeroSlider from '@/components/HeroSlider';
 import api from '@/lib/api';
 import { useLanguage } from '@/context/LanguageContext';
 
