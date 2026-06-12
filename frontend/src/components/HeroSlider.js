@@ -24,7 +24,6 @@ function TrophyIcon() {
 const SLIDES = [
   { desktop: '/images/hero-desktop-1.jpg', mobile: '/images/hero-mobile-1.jpg' },
   { desktop: '/images/hero-desktop-2.jpg', mobile: '/images/hero-mobile-2.jpg' },
-  { desktop: '/images/hero-desktop-3.jpg', mobile: '/images/hero-mobile-3.jpg' },
 ];
 
 const SLIDE_DURATION = 5000; // ms between auto-advance
