@@ -954,6 +954,15 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
 
 /* ── Mobile Nav visibility ────────────────────────────────── */
 
+/* ── Hero Image Banner ────────────────────────────────────── */
+.hero-image-desktop { display: block; }
+.hero-image-mobile  { display: none; }
+
+@media (max-width: 768px) {
+  .hero-image-desktop { display: none; }
+  .hero-image-mobile  { display: block; }
+}
+
 /* ── Bottom Mobile Navigation ────────────────────────────── */
 .bottom-nav {
   display: none;
