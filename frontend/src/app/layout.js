@@ -34,6 +34,7 @@ export default function RootLayout({ children }) {
             <ConditionalHeader />
             <main>{children}</main>
             <Footer />
+            <BottomNav />
           </AuthProvider>
         </LanguageProvider>
       </body>
