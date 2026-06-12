@@ -1,5 +1,6 @@
 import './globals.css';
 import ConditionalHeader from '@/components/layout/ConditionalHeader';
+import BottomNav from '@/components/layout/BottomNav';
 import Footer from '@/components/layout/Footer';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
