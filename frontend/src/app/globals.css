@@ -971,7 +971,12 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  width: 100%;
+  height: 60px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  box-sizing: border-box;
   background: rgba(5, 5, 8, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -979,10 +984,16 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   z-index: var(--z-sticky);
   align-items: stretch;
   justify-content: space-around;
+  /* Forces an immediate compositing layer so iOS Safari renders this
+     in place on first paint instead of only after the first scroll */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
 .bottom-nav-item {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -991,14 +1002,42 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   color: var(--color-text-muted);
   text-decoration: none;
   font-family: var(--font-heading);
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   transition: color var(--transition-fast);
 }
 
 .bottom-nav-item.active {
   color: var(--color-electric-blue);
+}
+
+/* MCQ center icon — image, larger than the other 4, no label,
+   sits in its own slot without flexing to take icon-only width */
+.bottom-nav-mcq {
+  flex: 0 0 auto;
+  width: 64px;
+}
+
+.bottom-nav-mcq-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.bottom-nav-mcq.active .bottom-nav-mcq-icon {
+  filter: drop-shadow(0 0 8px var(--color-electric-blue));
+  transform: scale(1.08);
+}
+
+@media (max-width: 768px) {
+  .bottom-nav { display: flex; }
+  body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Hide the hamburger / 3-bar menu — bottom nav covers navigation now */
+  .mobile-menu-btn { display: none !important; }
 }
 
 /* MCQ center icon — image placeholder */
@@ -1030,47 +1069,6 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   .hero-image-section { height: auto; aspect-ratio: 579 / 593; }
 }
 
-/* ── Bottom Mobile Navigation ────────────────────────────── */
-.bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
-  background: rgba(5, 5, 8, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0,150,255,0.15);
-  z-index: var(--z-sticky);
-  align-items: stretch;
-  justify-content: space-around;
-}
-
-.bottom-nav-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  font-family: var(--font-heading);
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: color var(--transition-fast);
-}
-
-.bottom-nav-item.active {
-  color: var(--color-electric-blue);
-}
-
-@media (max-width: 768px) {
-  .bottom-nav { display: flex; }
-  body { padding-bottom: 64px; }
-}
 @media (max-width: 768px) {
   .mobile-nav-overlay.open { display: block; }
   .mobile-nav.open { display: flex; }
