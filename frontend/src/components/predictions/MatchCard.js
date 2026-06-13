@@ -181,8 +181,8 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
         </button>
       </div>
 
-      {/* Score prediction */}
-      {!isFinished && prediction?.winner && (
+      {/* Score prediction — editable while open, read-only once locked/live/finished */}
+      {prediction?.winner && (
         <div style={{
           background: 'var(--color-surface-3)', borderRadius: 'var(--radius-lg)',
           padding: 'var(--space-4)', border: '1px solid rgba(0,150,255,0.15)',
@@ -191,66 +191,72 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
             fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em',
             color: 'var(--color-cyan)', textTransform: 'uppercase',
             textAlign: 'center', marginBottom: 'var(--space-3)',
-          }}>⚡ EXACT SCORE (+10 BONUS PTS)</div>
+          }}>
+            {isLocked ? 'YOUR PREDICTED SCORE' : '⚡ EXACT SCORE (+10 BONUS PTS)'}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)' }}>
             {/* Home score */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <button
-                onClick={() => updateScore('home', -1)}
-                disabled={isLocked}
-                style={{
-                  width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                  color: '#fff', cursor: isLocked ? 'default' : 'pointer', fontSize: '1.2rem',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >−</button>
+              {!isLocked && (
+                <button
+                  onClick={() => updateScore('home', -1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
+                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >−</button>
+              )}
               <span style={{
                 fontFamily: 'var(--font-hero)', fontSize: '2rem',
                 background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent', backgroundClip: 'text',
                 minWidth: 32, textAlign: 'center', letterSpacing: '0.05em',
               }}>{prediction.homeScore ?? 0}</span>
-              <button
-                onClick={() => updateScore('home', 1)}
-                disabled={isLocked}
-                style={{
-                  width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                  color: '#fff', cursor: isLocked ? 'default' : 'pointer', fontSize: '1.2rem',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >+</button>
+              {!isLocked && (
+                <button
+                  onClick={() => updateScore('home', 1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
+                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >+</button>
+              )}
             </div>
             <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', color: 'var(--color-text-muted)' }}>–</span>
             {/* Away score */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <button
-                onClick={() => updateScore('away', -1)}
-                disabled={isLocked}
-                style={{
-                  width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                  color: '#fff', cursor: isLocked ? 'default' : 'pointer', fontSize: '1.2rem',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >−</button>
+              {!isLocked && (
+                <button
+                  onClick={() => updateScore('away', -1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
+                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >−</button>
+              )}
               <span style={{
                 fontFamily: 'var(--font-hero)', fontSize: '2rem',
                 background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent', backgroundClip: 'text',
                 minWidth: 32, textAlign: 'center', letterSpacing: '0.05em',
               }}>{prediction.awayScore ?? 0}</span>
-              <button
-                onClick={() => updateScore('away', 1)}
-                disabled={isLocked}
-                style={{
-                  width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                  color: '#fff', cursor: isLocked ? 'default' : 'pointer', fontSize: '1.2rem',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >+</button>
+              {!isLocked && (
+                <button
+                  onClick={() => updateScore('away', 1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
+                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >+</button>
+              )}
             </div>
           </div>
         </div>
