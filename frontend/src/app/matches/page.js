@@ -166,7 +166,7 @@ export default function MatchesPage() {
       setSavedPredictions({ ...predictions });
       setHasUnsavedChanges(false);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save predictions');
+      setError(err.data?.message || err.message || 'Failed to save predictions');
     } finally {
       setSubmitting(false);
     }
