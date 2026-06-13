@@ -27,20 +27,21 @@ router.get('/', async (req, res, next) => {
       const { data: users, error } = await supabase
         .from('users')
         .select('id, full_name, display_name, total_points')
-        .not('full_name', 'is', null)
         .order('total_points', { ascending: false })
+        .order('created_at', { ascending: true })  // tie-break by signup date
         .limit(limit);
 
       if (error) throw error;
 
       const ranked = (users || []).map((u, i) => ({
         ...u,
+        full_name:    u.full_name    || u.display_name || 'Player',
+        display_name: u.display_name || u.full_name    || 'Player',
         rank: i + 1,
       }));
 
       return res.json(ranked);
     }
-
     // Round-specific leaderboard — aggregate points from predictions in those rounds
     const rounds = ROUND_GROUPS[roundGroup];
 
@@ -74,19 +75,21 @@ router.get('/', async (req, res, next) => {
       userPoints[a.user_id] += a.points_earned || 0;
     }
 
-    // Fetch user names
-    const userIds = Object.keys(userPoints);
-    if (userIds.length === 0) return res.json([]);
-
+    // Fetch ALL users (not just those with predictions) so everyone appears
     const { data: users, error: userErr } = await supabase
       .from('users')
       .select('id, full_name, display_name')
-      .in('id', userIds);
+      .order('created_at', { ascending: true });
 
     if (userErr) throw userErr;
 
     const ranked = (users || [])
-      .map(u => ({ ...u, total_points: userPoints[u.id] || 0 }))
+      .map(u => ({
+        ...u,
+        full_name:    u.full_name    || u.display_name || 'Player',
+        display_name: u.display_name || u.full_name    || 'Player',
+        total_points: userPoints[u.id] || 0,
+      }))
       .sort((a, b) => b.total_points - a.total_points)
       .slice(0, limit)
       .map((u, i) => ({ ...u, rank: i + 1 }));
