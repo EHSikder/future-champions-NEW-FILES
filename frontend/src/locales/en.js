@@ -3,6 +3,7 @@ export const en = {
   nav_home: "Home",
   nav_matches: "Matches",
   nav_leaderboard: "Leaderboard",
+  nav_profile: "Profile",
   nav_sign_in: "Sign In",
   nav_sign_out: "Sign Out",
 
