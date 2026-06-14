@@ -7,6 +7,7 @@ import MatchCard from '@/components/predictions/MatchCard';
 import { useLanguage } from '@/context/LanguageContext';
 import api from '@/lib/api';
 import { supabase } from '@/lib/supabaseClient';
+import PageBanner from '@/components/PageBanner';
 
 export default function MatchesPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -207,50 +208,24 @@ export default function MatchesPage() {
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
       <div className="container" style={{ maxWidth: 720, padding: 'var(--space-6) var(--space-4)', paddingBottom: '120px' }}>
 
-        {/* Promo Video Banner */}
-        <div style={{
-          position: 'relative', height: 200, borderRadius: 'var(--radius-xl)',
-          overflow: 'hidden', marginBottom: 'var(--space-6)',
-          border: '1px solid rgba(0,150,255,0.3)',
-          boxShadow: 'var(--glow-blue)',
-        }}>
-          <video
-            style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.55)' }}
-            autoPlay muted loop playsInline
-            src="/videos/promo-teaser.mp4"
-            poster="/images/promo-poster.jpg"
-          />
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(135deg, rgba(0,0,0,0.5) 0%, transparent 70%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: 'var(--space-6) var(--space-8)',
-          }}>
-            <div>
+        {/* Image Banner */}
+        <PageBanner
+          title="MATCH PREDICTIONS"
+          subtitle="Predict winners & exact scores to earn points"
+          right={userStanding && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Your Rank</div>
               <div style={{
-                fontFamily: 'var(--font-hero)', fontSize: '2rem', letterSpacing: '0.08em',
-                background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
+                fontFamily: 'var(--font-hero)', fontSize: '2.5rem', letterSpacing: '0.05em',
+                background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              }}>MATCH PREDICTIONS</div>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9rem' }}>
-                Predict winners &amp; exact scores to earn points
-              </p>
-            </div>
-            {userStanding && (
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Your Rank</div>
-                <div style={{
-                  fontFamily: 'var(--font-hero)', fontSize: '2.5rem', letterSpacing: '0.05em',
-                  background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                }}>#{userStanding.rank}</div>
-                <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
-                  {userStanding.total_points} pts
-                </div>
+              }}>#{userStanding.rank}</div>
+              <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
+                {userStanding.total_points} pts
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        />
 
         {/* Active MCQ Banner */}
         {activeMcq && !mcqSubmitted && (
