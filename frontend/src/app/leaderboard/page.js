@@ -4,6 +4,7 @@ import api from '@/lib/api';
 import { supabase } from '@/lib/supabaseClient';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
+import PageBanner from '@/components/PageBanner';
 
 function getInitials(name) {
   if (!name) return '?';
@@ -149,31 +150,11 @@ export default function LeaderboardPage() {
       <div style={{ minHeight: '100vh', background: 'var(--color-bg)', paddingBottom: currentUser ? 100 : 40 }}>
         <div className="container" style={{ maxWidth: 640, padding: 'var(--space-6) var(--space-4)' }}>
 
-          {/* Promo Video Banner */}
-          <div className="lb-banner-video" style={{ position: 'relative', height: 160, marginBottom: 'var(--space-5)' }}>
-            <video
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              autoPlay muted loop playsInline
-              src="/videos/promo-teaser.mp4"
-              poster="/images/promo-poster.jpg"
-            />
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.6) 0%, transparent 60%)',
-              display: 'flex', alignItems: 'center', padding: 'var(--space-6)',
-            }}>
-              <div>
-                <div style={{
-                  fontFamily: 'var(--font-hero)', fontSize: '1.6rem', letterSpacing: '0.08em',
-                  background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                }}>LEADERBOARD</div>
-                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>
-                  {currentTabInfo?.icon} {currentTabInfo?.label} — {ROUND_PRIZE[activeTab]}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Image Banner */}
+          <PageBanner
+            title="LEADERBOARD"
+            subtitle={`${currentTabInfo?.icon || ''} ${currentTabInfo?.label} — ${ROUND_PRIZE[activeTab]}`}
+          />
 
           {/* Round Tabs */}
           <div className="round-tab-bar" style={{ marginBottom: 'var(--space-5)' }}>
