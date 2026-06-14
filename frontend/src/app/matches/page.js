@@ -339,7 +339,7 @@ export default function MatchesPage() {
         })}
 
         {/* Floating Save button */}
-        <div style={{ 
+        <div className="floating-save-bar" style={{ 
           position: 'fixed', 
           bottom: 'max(24px, env(safe-area-inset-bottom))', 
           left: 0, 
