@@ -1012,6 +1012,13 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   color: var(--color-electric-blue);
 }
 
+/* Push the floating save button above the bottom nav on mobile */
+@media (max-width: 768px) {
+  .floating-save-bar {
+    bottom: calc(60px + max(24px, env(safe-area-inset-bottom)) + 12px) !important;
+  }
+}
+
 /* MCQ center icon — image, larger than the other 4, no label,
    sits in its own slot without flexing to take icon-only width */
 .bottom-nav-mcq {
