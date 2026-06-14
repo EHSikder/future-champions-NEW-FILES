@@ -1073,7 +1073,7 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
 .page-banner {
   position: relative;
   width: 100%;
-  height: 592px;
+  aspect-ratio: 1512 / 592;
   border-radius: var(--radius-xl);
   overflow: hidden;
   margin-bottom: var(--space-6);
