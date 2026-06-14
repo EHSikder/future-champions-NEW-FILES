@@ -67,18 +67,8 @@ export default function ProfilePage() {
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
     <div className="container" style={{ padding: 'var(--space-6) var(--space-4)', maxWidth: 800 }}>
 
-      {/* Promo video banner */}
-      <div style={{
-        position: 'relative', height: 140, borderRadius: 'var(--radius-xl)',
-        overflow: 'hidden', marginBottom: 'var(--space-6)',
-        border: '1px solid rgba(0,150,255,0.3)', boxShadow: 'var(--glow-blue)',
-      }}>
-        <video style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.55)' }}
-          autoPlay muted loop playsInline src="/videos/promo-teaser.mp4" poster="/images/promo-poster.jpg" />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(0,0,0,0.5) 0%,transparent 60%)', display: 'flex', alignItems: 'center', padding: 'var(--space-6)' }}>
-          <div style={{ fontFamily: 'var(--font-hero)', fontSize: '1.8rem', letterSpacing: '0.08em', background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>MY PROFILE</div>
-        </div>
-      </div>
+      {/* Image Banner */}
+      <PageBanner title="MY PROFILE" />
 
       {/* Notification Banner */}
       <NotificationBanner />
