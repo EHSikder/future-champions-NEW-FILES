@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { ROUND_NAMES } from '@/lib/constants';
 import { NotificationBanner } from '@/components/NotificationPrompt';
+import PageBanner from '@/components/PageBanner';
 
 export default function ProfilePage() {
   const router = useRouter();
