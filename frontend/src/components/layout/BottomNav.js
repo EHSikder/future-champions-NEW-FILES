@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 
-const ICON_SIZE = 18; // regular icons — kept small so the MCQ ring stands out
+const ICON_SIZE = 16; // regular icons — kept small + tight so the MCQ ring stands out
 
 function HomeIcon({ active }) {
   return (
