@@ -998,12 +998,12 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   color: var(--color-text-muted);
   text-decoration: none;
   font-family: var(--font-heading);
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   transition: color var(--transition-fast);
 }
@@ -1020,31 +1020,45 @@ h4 { font-size: var(--fs-xl); font-family: var(--font-body); font-weight: 700; }
 }
 
 /* ── MCQ center button — glowing, rotating neon ring + label ──
-   Fixed-width slot so the bar can never get wider; the ring itself is
-   absolutely positioned, so its size + glow only poke *upward* and never
-   add horizontal width or push the other items around. */
+   Fixed-width slot so the bar can never get wider. The ring is absolutely
+   positioned and centred with auto margins (NOT a transform), so its layout
+   box stays fully inside the slot and can never add horizontal width — even
+   in older WebViews that count a transformed element's pre-transform box.
+   It only pokes *upward*, never sideways. */
 .bottom-nav-mcq {
   flex: 0 0 auto;
-  width: 58px;
+  width: 54px;
   position: relative;
   justify-content: flex-end;   /* keep the MCQ label level with the others */
-  padding-bottom: 13px;
+  padding-bottom: 9px;
   overflow: visible;
 }
 
+/* MCQ label — intentionally larger than the other nav labels */
 .bottom-nav-mcq .mcq-label {
   white-space: nowrap;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: #fff;
+}
+.bottom-nav-mcq.active .mcq-label {
+  color: var(--color-electric-blue);
 }
 
-/* The ring — bigger than the other icons and lifted above the bar's top edge */
+/* The ring — bigger than the other icons and lifted above the bar's top edge.
+   overflow:hidden clips the spinning band to the circle so its rotating
+   square box can never bleed past the slot either. */
 .mcq-ring {
   position: absolute;
-  top: -16px;
-  left: 50%;
-  width: 50px;
-  height: 50px;
-  transform: translateX(-50%);
+  top: -15px;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
+  overflow: hidden;
   /* dark disc so the hollow centre always reads as black, like the reference */
   background: radial-gradient(circle at 50% 42%, #0b0b16 0%, #050509 72%);
   animation: mcq-ring-glow 2.8s ease-in-out infinite;
