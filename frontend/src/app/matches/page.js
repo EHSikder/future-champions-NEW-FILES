@@ -1,313 +1,370 @@
 'use client';
+
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import MatchCard from '@/components/predictions/MatchCard';
+import { useLanguage } from '@/context/LanguageContext';
+import api from '@/lib/api';
+import { supabase } from '@/lib/supabaseClient';
+import PageBanner from '@/components/PageBanner';
 
-// Score → outcome. Equal scores always mean draw, for every round
-// (backend already treats predicted_winner_team_id === null as a draw
-// prediction regardless of round, and a real knockout match can never
-// finish level, so this is safe — it just scores 0 winner-points if a
-// knockout score prediction happens to come out tied).
-function deriveWinner(homeScore, awayScore) {
-  if (homeScore > awayScore) return 'home';
-  if (awayScore > homeScore) return 'away';
-  return 'draw';
-}
+export default function MatchesPage() {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { t } = useLanguage();
 
-export default function MatchCard({ match, prediction, onPredictionChange }) {
-  const [isLockedLocal, setIsLockedLocal] = useState(false);
+  const [matches, setMatches]               = useState([]);
+  const [predictions, setPredictions]       = useState({});
+  const [savedPredictions, setSavedPredictions] = useState({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [loading, setLoading]               = useState(true);
+  const [submitting, setSubmitting]         = useState(false);
+  const [error, setError]                   = useState('');
+  const [userStanding, setUserStanding]     = useState(null);
+  const [topPlayer, setTopPlayer]           = useState(null);
+  const [activeMcq, setActiveMcq]           = useState(null);
+  const [mcqAnswer, setMcqAnswer]           = useState(null);
+  const [mcqSubmitted, setMcqSubmitted]     = useState(false);
 
+  // Redirect if not logged in
   useEffect(() => {
-    if (match.kickoff_time) {
-      const check = () => {
-        const diffMinutes = (new Date(match.kickoff_time) - Date.now()) / 1000 / 60;
-        if (diffMinutes <= 5 || match.status !== 'scheduled') setIsLockedLocal(true);
-      };
-      check();
-      const interval = setInterval(check, 60_000);
-      return () => clearInterval(interval);
+    if (!authLoading && !isAuthenticated) router.push('/login');
+  }, [isAuthenticated, authLoading, router]);
+
+  // Fetch data + set up realtime
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+
+    let channel = null;
+    let debounceTimer = null;
+    let pollInterval = null;
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [resMatches, resPreds] = await Promise.all([
+          api.get('/api/matches'),
+          api.get('/api/predictions'),
+        ]);
+
+        const allMatches = resMatches.data;
+        allMatches.sort((a, b) => {
+          if (!a.kickoff_time) return 1;
+          if (!b.kickoff_time) return -1;
+          return new Date(a.kickoff_time) - new Date(b.kickoff_time);
+        });
+        setMatches(allMatches);
+
+        const matchMap = {};
+        allMatches.forEach(m => { matchMap[m.match_number] = m; });
+
+        const predsData = resPreds.data.predictions || [];
+        const predsObj  = {};
+
+        predsData.forEach(p => {
+          const match = matchMap[p.match_number];
+          let winner = null;
+          if (p.predicted_winner_team_id === null) {
+            winner = 'draw';
+          } else if (match?.home_team?.id && p.predicted_winner_team_id === match.home_team.id) {
+            winner = 'home';
+          } else if (match?.away_team?.id && p.predicted_winner_team_id === match.away_team.id) {
+            winner = 'away';
+          }
+
+          predsObj[p.match_number] = {
+            winner,
+            homeScore:             p.predicted_home_score ?? 0,
+            awayScore:             p.predicted_away_score ?? 0,
+            predictedWinnerTeamId: p.predicted_winner_team_id,
+            isLocked:              p.is_locked,
+            lockedReason:          p.locked_reason,
+            pointsEarned:          p.points_earned,
+          };
+        });
+
+        setPredictions(predsObj);
+        setSavedPredictions(predsObj);
+
+        // Fetch leaderboard standing
+        api.get('/api/leaderboard?limit=200').then(resLb => {
+          const lbData = Array.isArray(resLb) ? resLb : (resLb.data || []);
+          if (lbData.length > 0) setTopPlayer(lbData[0]);
+          const me = lbData.find(u => u.id === user.id);
+          if (me) setUserStanding(me);
+        }).catch(() => {});
+
+        // Check for active MCQ
+        api.get('/api/mcq/active').then(resMcq => {
+          if (resMcq.data?.active) setActiveMcq(resMcq.data);
+        }).catch(() => {});
+
+      } catch (err) {
+        setError(err.message || 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Debounced fetch — waits 5s after last realtime event before fetching
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(fetchData, 5000);
+    };
+
+    fetchData();
+
+    // Realtime: only listen for match changes (scores, status)
+    if (supabase) {
+      channel = supabase
+        .channel('matches-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
+          debouncedFetch();
+        })
+        .subscribe();
     }
-  }, [match.kickoff_time, match.status]);
 
-  const isLocked = prediction?.isLocked || isLockedLocal || match.status !== 'scheduled';
-  const isFinished = match.status === 'finished';
-  const isLive = ['live', 'halftime', 'extra_time', 'penalties'].includes(match.status);
-  const showScore = ['live', 'halftime', 'extra_time', 'penalties', 'finished'].includes(match.status);
+    // Gentle polling fallback every 2 minutes
+    pollInterval = setInterval(fetchData, 120000);
 
-  const homeTeamName = match.home_team?.name || match.home_placeholder || 'TBD';
-  const awayTeamName = match.away_team?.name || match.away_placeholder || 'TBD';
-  const homeFlag = match.home_team?.flag_url || null;
-  const awayFlag = match.away_team?.flag_url || null;
+    return () => {
+      if (channel) supabase?.removeChannel(channel);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [isAuthenticated, user?.id]);
 
-  // Has the user touched this match's prediction at all yet?
-  const hasPrediction = prediction !== undefined && prediction !== null;
-  const winner = prediction?.winner; // 'home' | 'away' | 'draw' | undefined
-
-  const updateScore = (side, delta) => {
-    if (isLocked || !match.home_team || !match.away_team) return;
-
-    const currentHome = parseInt(prediction?.homeScore ?? 0, 10);
-    const currentAway = parseInt(prediction?.awayScore ?? 0, 10);
-
-    const newHome = side === 'home' ? Math.max(0, currentHome + delta) : currentHome;
-    const newAway = side === 'away' ? Math.max(0, currentAway + delta) : currentAway;
-    const newWinner = deriveWinner(newHome, newAway);
-
-    onPredictionChange(match.match_number, side === 'home' ? 'homeScore' : 'awayScore', side === 'home' ? newHome : newAway);
-    onPredictionChange(match.match_number, 'winner', newWinner);
+  const handlePredictionChange = (matchNumber, field, value) => {
+    setPredictions(prev => {
+      const updated = { ...prev, [matchNumber]: { ...(prev[matchNumber] || {}), [field]: value } };
+      setHasUnsavedChanges(JSON.stringify(updated) !== JSON.stringify(savedPredictions));
+      return updated;
+    });
   };
 
-  // "SET 0-0" — only relevant the very first time, before any prediction
-  // exists for this match. Disappears the moment the user touches a
-  // +/- button (hasPrediction becomes true) or uses this button itself.
-  const showSetZeroDraw = !isLocked && !hasPrediction && match.home_team && match.away_team;
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const payload = Object.entries(predictions)
+        .filter(([mn, pred]) => !pred.isLocked && pred.winner !== undefined)
+        .map(([mn, pred]) => {
+          const match = matches.find(m => m.match_number === parseInt(mn));
+          let winnerTeamId = null;
+          if (pred.winner === 'home')  winnerTeamId = match?.home_team?.id;
+          if (pred.winner === 'away')  winnerTeamId = match?.away_team?.id;
+          if (pred.winner === 'draw')  winnerTeamId = null;
+          return {
+            match_number:           parseInt(mn),
+            predicted_winner_team_id: winnerTeamId,
+            predicted_home_score:   pred.homeScore ?? 0,
+            predicted_away_score:   pred.awayScore ?? 0,
+          };
+        });
 
-  const handleSetZeroDraw = () => {
-    if (isLocked || hasPrediction) return;
-    onPredictionChange(match.match_number, 'homeScore', 0);
-    onPredictionChange(match.match_number, 'awayScore', 0);
-    onPredictionChange(match.match_number, 'winner', 'draw');
+      await api.post('/api/predictions', { predictions: payload });
+      setSavedPredictions({ ...predictions });
+      setHasUnsavedChanges(false);
+    } catch (err) {
+      setError(err.data?.message || err.message || 'Failed to save predictions');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const pts = prediction?.pointsEarned;
-  const hasPts = isFinished && typeof pts === 'number' && pts > 0;
-
-  const getStatusBadge = () => {
-    if (isLive) return { label: '● LIVE', color: '#FF4466' };
-    if (isFinished) return { label: 'FINISHED', color: 'var(--color-text-muted)' };
-    if (isLocked && !isFinished) return { label: '🔒 LOCKED', color: 'var(--color-vibrant-orange)' };
-    return null;
+  const handleMcqSubmit = async () => {
+    if (!mcqAnswer || !activeMcq) return;
+    try {
+      await api.post('/api/mcq/answer', { question_id: activeMcq.id, answer: mcqAnswer });
+      setMcqSubmitted(true);
+    } catch {}
   };
-  const badge = getStatusBadge();
 
-  const kickoff = match.kickoff_time
-    ? new Date(match.kickoff_time).toLocaleString('en-GB', {
-        timeZone: 'Asia/Kuwait',
-        month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      })
-    : 'TBD';
+  // Group matches by round
+  const rounds = ['group_stage', 'round_of_32', 'round_of_16', 'quarterfinal', 'semifinal', 'final'];
+  const roundLabels = {
+    group_stage: 'Group Stage',
+    round_of_32: 'Round of 32',
+    round_of_16: 'Round of 16',
+    quarterfinal: 'Quarter-Finals',
+    semifinal: 'Semi-Finals',
+    final: 'Final',
+  };
+  const matchesByRound = rounds.reduce((acc, r) => {
+    acc[r] = matches.filter(m => m.round === r);
+    return acc;
+  }, {});
 
-  // Show the prediction score box when:
-  //  - match is still open (always show, default 0-0, editable), OR
-  //  - match is locked/live/finished AND the user actually has a saved prediction
-  const showPredictionBox = !isLocked || (isLocked && hasPrediction);
+  if (authLoading || loading) {
+    return (
+      <div className="loading-page" style={{ background: 'var(--color-bg)', minHeight: '80vh' }}>
+        <div className="spinner spinner-lg" />
+      </div>
+    );
+  }
 
   return (
-    <div style={{
-      background: 'var(--color-surface-2)',
-      border: `1px solid ${isLocked && !isFinished ? 'rgba(255,100,0,0.3)' : 'var(--color-border)'}`,
-      borderRadius: 'var(--radius-xl)',
-      padding: 'var(--space-5)',
-      marginBottom: 'var(--space-3)',
-      transition: 'all 0.2s',
-      opacity: isLocked && !isFinished && !isLive ? 0.75 : 1,
-      position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Top bar: match info + status */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', letterSpacing: '0.08em' }}>
-            #{match.match_number}
-          </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{kickoff}</span>
-          {match.venue && (
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)' }}>📍 {match.city}</span>
+    <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
+      <div className="container" style={{ maxWidth: 720, padding: 'var(--space-6) var(--space-4)', paddingBottom: '120px' }}>
+
+        {/* Image Banner */}
+        <PageBanner
+          title="MATCH PREDICTIONS"
+          subtitle="Predict winners & exact scores to earn points"
+          right={userStanding && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Your Rank</div>
+              <div style={{
+                fontFamily: 'var(--font-hero)', fontSize: '2.5rem', letterSpacing: '0.05em',
+                background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              }}>#{userStanding.rank}</div>
+              <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
+                {userStanding.total_points} pts
+              </div>
+            </div>
           )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          {badge && (
-            <span style={{
-              fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em',
-              color: badge.color,
-              ...(isLive ? { animation: 'pulse 1.5s ease-in-out infinite' } : {}),
-            }}>{badge.label}</span>
-          )}
-          {hasPts && (
-            <span style={{
-              background: 'var(--gradient-blue-cyan)', color: '#000',
-              fontSize: '0.75rem', fontWeight: 800, padding: '3px 10px',
-              borderRadius: 'var(--radius-full)', letterSpacing: '0.05em',
-            }}>+{pts} pts</span>
-          )}
-        </div>
-      </div>
+        />
 
-      {/* Live / final score */}
-      {showScore && (
-        <div style={{
-          textAlign: 'center', marginBottom: 'var(--space-3)',
-          fontFamily: 'var(--font-hero)', fontSize: '2rem', letterSpacing: '0.1em',
-          background: isLive ? 'var(--gradient-orange-fire)' : 'var(--gradient-blue-cyan)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-        }}>
-          {match.home_score ?? 0} — {match.away_score ?? 0}
-        </div>
-      )}
-
-      {/* Teams row — display only, no longer clickable.
-          Outcome (highlight) is driven entirely by the score below. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
-        {/* Home team */}
-        <div
-          style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: 'var(--space-2)', padding: 'var(--space-4) var(--space-2)',
-            background: winner === 'home' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
-            border: `1px solid ${winner === 'home' ? '#0096FF' : 'var(--color-border)'}`,
-            borderRadius: 'var(--radius-lg)',
-            transition: 'all 0.2s',
-            boxShadow: winner === 'home' ? 'var(--glow-blue)' : 'none',
-          }}
-        >
-          {homeFlag
-            ? <img src={homeFlag} alt={homeTeamName} style={{ width: 40, height: 28, objectFit: 'cover', borderRadius: 3 }} />
-            : <div style={{ width: 40, height: 28, background: 'var(--color-surface-4)', borderRadius: 3 }} />
-          }
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>
-            {homeTeamName}
-          </span>
-        </div>
-
-        {/* vs / draw indicator (read-only label, reflects the score) */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', color: 'var(--color-text-dim)', letterSpacing: '0.05em' }}>VS</span>
-          {winner === 'draw' && (
-            <span style={{
-              padding: '4px 12px', fontSize: '0.7rem', fontWeight: 700,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              background: 'rgba(255,100,0,0.2)',
-              border: '1px solid #FF6400',
-              borderRadius: 'var(--radius-full)', color: '#FF6400',
-            }}>
-              DRAW
-            </span>
-          )}
-        </div>
-
-        {/* Away team */}
-        <div
-          style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: 'var(--space-2)', padding: 'var(--space-4) var(--space-2)',
-            background: winner === 'away' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
-            border: `1px solid ${winner === 'away' ? '#0096FF' : 'var(--color-border)'}`,
-            borderRadius: 'var(--radius-lg)',
-            transition: 'all 0.2s',
-            boxShadow: winner === 'away' ? 'var(--glow-blue)' : 'none',
-          }}
-        >
-          {awayFlag
-            ? <img src={awayFlag} alt={awayTeamName} style={{ width: 40, height: 28, objectFit: 'cover', borderRadius: 3 }} />
-            : <div style={{ width: 40, height: 28, background: 'var(--color-surface-4)', borderRadius: 3 }} />
-          }
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>
-            {awayTeamName}
-          </span>
-        </div>
-      </div>
-
-      {/* Score prediction — the ONLY way to set a prediction now.
-          Editable while open, read-only once locked/live/finished. */}
-      {showPredictionBox && (
-        <div style={{
-          background: 'var(--color-surface-3)', borderRadius: 'var(--radius-lg)',
-          padding: 'var(--space-4)', border: '1px solid rgba(0,150,255,0.15)',
-        }}>
+        {/* Active MCQ Banner */}
+        {activeMcq && !mcqSubmitted && (
           <div style={{
-            fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em',
-            color: 'var(--color-cyan)', textTransform: 'uppercase',
-            textAlign: 'center', marginBottom: 'var(--space-3)',
+            background: 'linear-gradient(135deg, rgba(120,0,200,0.2) 0%, rgba(0,150,255,0.15) 100%)',
+            border: '1px solid rgba(120,0,200,0.5)',
+            borderRadius: 'var(--radius-xl)',
+            padding: 'var(--space-6)',
+            marginBottom: 'var(--space-6)',
           }}>
-            {isLocked ? 'YOUR PREDICTED SCORE' : '⚡ PREDICT THE SCORE (+10 BONUS PTS)'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+              <span style={{ fontSize: '1.5rem' }}>🧠</span>
+              <div>
+                <div style={{
+                  fontFamily: 'var(--font-hero)', fontSize: '1.2rem', letterSpacing: '0.1em',
+                  background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                }}>BONUS MCQ — +5 POINTS</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Answer correctly to earn bonus points!</div>
+              </div>
+            </div>
+            <p style={{ color: '#fff', fontWeight: 600, marginBottom: 'var(--space-4)' }}>
+              {activeMcq.question}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+              {activeMcq.options?.map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => setMcqAnswer(opt)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 'var(--radius-md)',
+                    background: mcqAnswer === opt ? 'rgba(0,150,255,0.25)' : 'var(--color-surface-3)',
+                    border: `1px solid ${mcqAnswer === opt ? '#0096FF' : 'var(--color-border)'}`,
+                    color: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
+                    fontFamily: 'var(--font-body)', fontSize: '0.9rem',
+                  }}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleMcqSubmit}
+              disabled={!mcqAnswer}
+              className="btn btn-gold"
+              style={{ width: '100%' }}
+            >
+              SUBMIT ANSWER
+            </button>
           </div>
+        )}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)' }}>
-            {/* Home score */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              {!isLocked && (
-                <button
-                  onClick={() => updateScore('home', -1)}
-                  style={{
-                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >−</button>
-              )}
-              <span style={{
-                fontFamily: 'var(--font-hero)', fontSize: '2rem',
-                background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                minWidth: 32, textAlign: 'center', letterSpacing: '0.05em',
-              }}>{prediction?.homeScore ?? 0}</span>
-              {!isLocked && (
-                <button
-                  onClick={() => updateScore('home', 1)}
-                  style={{
-                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >+</button>
-              )}
-            </div>
-
-            <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', color: 'var(--color-text-muted)' }}>–</span>
-
-            {/* Away score */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              {!isLocked && (
-                <button
-                  onClick={() => updateScore('away', -1)}
-                  style={{
-                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >−</button>
-              )}
-              <span style={{
-                fontFamily: 'var(--font-hero)', fontSize: '2rem',
-                background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                minWidth: 32, textAlign: 'center', letterSpacing: '0.05em',
-              }}>{prediction?.awayScore ?? 0}</span>
-              {!isLocked && (
-                <button
-                  onClick={() => updateScore('away', 1)}
-                  style={{
-                    width: 32, height: 32, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-surface-4)', border: '1px solid var(--color-border)',
-                    color: '#fff', cursor: 'pointer', fontSize: '1.2rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >+</button>
-              )}
-            </div>
+        {mcqSubmitted && (
+          <div className="alert alert-success" style={{ marginBottom: 'var(--space-5)' }}>
+            ✅ MCQ submitted! Bonus points will be awarded if your answer is correct.
           </div>
+        )}
 
-          {/* SET 0-0 — only before the user has made any prediction at all */}
-          {showSetZeroDraw && (
-            <div style={{ textAlign: 'center', marginTop: 'var(--space-3)' }}>
-              <button
-                onClick={handleSetZeroDraw}
-                style={{
-                  padding: '6px 16px', fontSize: '0.72rem', fontWeight: 700,
-                  letterSpacing: '0.08em', textTransform: 'uppercase',
-                  background: 'rgba(255,100,0,0.12)',
-                  border: '1px solid rgba(255,100,0,0.4)',
-                  borderRadius: 'var(--radius-full)', color: '#FF8A3D',
-                  cursor: 'pointer', transition: 'all 0.2s',
-                }}
-              >
-                SET 0–0
-              </button>
+        {error && <div className="alert alert-error">{error}</div>}
+
+        {/* Unsaved changes bar */}
+        {hasUnsavedChanges && (
+          <div style={{
+            background: 'rgba(255,100,0,0.1)', border: '1px solid rgba(255,100,0,0.4)',
+            borderRadius: 'var(--radius-lg)', padding: 'var(--space-4) var(--space-5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 'var(--space-5)',
+          }}>
+            <span style={{ color: 'var(--color-vibrant-orange)', fontWeight: 600, fontSize: '0.9rem' }}>
+              ⚠️ You have unsaved predictions
+            </span>
+            <button
+              className="btn btn-orange btn-sm"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? 'SAVING...' : 'SAVE ALL'}
+            </button>
+          </div>
+        )}
+
+        {/* Matches grouped by round */}
+        {rounds.map(round => {
+          const roundMatches = matchesByRound[round];
+          if (!roundMatches?.length) return null;
+          return (
+            <div key={round} style={{ marginBottom: 'var(--space-8)' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
+                marginBottom: 'var(--space-4)',
+              }}>
+                <h3 style={{
+                  fontFamily: 'var(--font-hero)', fontSize: '1.5rem', letterSpacing: '0.1em',
+                  background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                }}>
+                  {roundLabels[round] || round}
+                </h3>
+                <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+              </div>
+              {roundMatches.map(match => (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  prediction={predictions[match.match_number]}
+                  onPredictionChange={handlePredictionChange}
+                />
+              ))}
             </div>
-          )}
+          );
+        })}
+
+        {/* Floating Save button */}
+        <div className="floating-save-bar" style={{ 
+          position: 'fixed', 
+          bottom: 'max(24px, env(safe-area-inset-bottom))', 
+          left: 0, 
+          right: 0, 
+          textAlign: 'center', 
+          zIndex: 999,
+          pointerEvents: 'none'
+        }}>
+          <button
+            className="btn btn-primary btn-lg"
+            onClick={handleSubmit}
+            disabled={submitting || !hasUnsavedChanges}
+            style={{ 
+              minWidth: 260,
+              pointerEvents: 'auto',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 150, 255, 0.4)',
+              transform: hasUnsavedChanges ? 'translateY(0)' : 'translateY(100px)',
+              opacity: hasUnsavedChanges ? 1 : 0,
+              transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}
+          >
+            {submitting ? 'SAVING...' : 'SAVE PREDICTIONS'}
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
