@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 
-const ICON_SIZE = 19; // regular icons — slightly smaller than before (was 22)
+const ICON_SIZE = 18; // regular icons — kept small so the MCQ ring stands out
 
 function HomeIcon({ active }) {
   return (
@@ -71,17 +71,14 @@ export default function BottomNav() {
         </Link>
       ))}
 
-      {/* ── MCQ center icon — image only, no label, larger than the rest ── */}
+      {/* ── MCQ center button — glowing, rotating neon ring + label ── */}
       <Link
         href="/mcq"
         className={`bottom-nav-item bottom-nav-mcq ${isActive('/mcq') ? 'active' : ''}`}
         aria-label={t('nav_mcq') || 'MCQ'}
       >
-        <img
-          src="/images/mcq-icon.png"
-          alt={t('nav_mcq') || 'MCQ'}
-          className="bottom-nav-mcq-icon"
-        />
+        <span className="mcq-ring" aria-hidden="true" />
+        <span className="mcq-label">{t('nav_mcq') || 'MCQ'}</span>
       </Link>
 
       {rightItems.map(({ href, label, Icon }) => (
