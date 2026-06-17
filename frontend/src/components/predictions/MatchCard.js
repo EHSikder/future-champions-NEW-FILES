@@ -1,6 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
 
+// Score → outcome. Equal scores always mean draw, for every round
+// (backend already treats predicted_winner_team_id === null as a draw
+// prediction regardless of round, and a real knockout match can never
+// finish level, so this is safe — it just scores 0 winner-points if a
+// knockout score prediction happens to come out tied).
+function deriveWinner(homeScore, awayScore) {
+  if (homeScore > awayScore) return 'home';
+  if (awayScore > homeScore) return 'away';
+  return 'draw';
+}
+
 export default function MatchCard({ match, prediction, onPredictionChange }) {
   const [isLockedLocal, setIsLockedLocal] = useState(false);
 
@@ -25,19 +36,35 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
   const awayTeamName = match.away_team?.name || match.away_placeholder || 'TBD';
   const homeFlag = match.home_team?.flag_url || null;
   const awayFlag = match.away_team?.flag_url || null;
-  const isKnockout = ['round_of_32','round_of_16','quarterfinal','semifinal','third_place','final'].includes(match.round);
 
-  const handleWinnerClick = (side) => {
+  // Has the user touched this match's prediction at all yet?
+  const hasPrediction = prediction !== undefined && prediction !== null;
+  const winner = prediction?.winner; // 'home' | 'away' | 'draw' | undefined
+
+  const updateScore = (side, delta) => {
     if (isLocked || !match.home_team || !match.away_team) return;
-    const newWinner = prediction?.winner === side ? undefined : side;
+
+    const currentHome = parseInt(prediction?.homeScore ?? 0, 10);
+    const currentAway = parseInt(prediction?.awayScore ?? 0, 10);
+
+    const newHome = side === 'home' ? Math.max(0, currentHome + delta) : currentHome;
+    const newAway = side === 'away' ? Math.max(0, currentAway + delta) : currentAway;
+    const newWinner = deriveWinner(newHome, newAway);
+
+    onPredictionChange(match.match_number, side === 'home' ? 'homeScore' : 'awayScore', side === 'home' ? newHome : newAway);
     onPredictionChange(match.match_number, 'winner', newWinner);
   };
 
-  const updateScore = (side, delta) => {
-    if (isLocked) return;
-    const field = side === 'home' ? 'homeScore' : 'awayScore';
-    const current = parseInt(prediction?.[field] ?? 0, 10);
-    onPredictionChange(match.match_number, field, Math.max(0, current + delta));
+  // "SET 0-0" — only relevant the very first time, before any prediction
+  // exists for this match. Disappears the moment the user touches a
+  // +/- button (hasPrediction becomes true) or uses this button itself.
+  const showSetZeroDraw = !isLocked && !hasPrediction && match.home_team && match.away_team;
+
+  const handleSetZeroDraw = () => {
+    if (isLocked || hasPrediction) return;
+    onPredictionChange(match.match_number, 'homeScore', 0);
+    onPredictionChange(match.match_number, 'awayScore', 0);
+    onPredictionChange(match.match_number, 'winner', 'draw');
   };
 
   const pts = prediction?.pointsEarned;
@@ -58,6 +85,11 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
         hour: '2-digit', minute: '2-digit'
       })
     : 'TBD';
+
+  // Show the prediction score box when:
+  //  - match is still open (always show, default 0-0, editable), OR
+  //  - match is locked/live/finished AND the user actually has a saved prediction
+  const showPredictionBox = !isLocked || (isLocked && hasPrediction);
 
   return (
     <div style={{
@@ -99,7 +131,7 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
         </div>
       </div>
 
-      {/* Live score */}
+      {/* Live / final score */}
       {showScore && (
         <div style={{
           textAlign: 'center', marginBottom: 'var(--space-3)',
@@ -111,20 +143,19 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
         </div>
       )}
 
-      {/* Teams row */}
+      {/* Teams row — display only, no longer clickable.
+          Outcome (highlight) is driven entirely by the score below. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
         {/* Home team */}
-        <button
-          onClick={() => handleWinnerClick('home')}
-          disabled={isLocked || !match.home_team}
+        <div
           style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 'var(--space-2)', padding: 'var(--space-4) var(--space-2)',
-            background: prediction?.winner === 'home' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
-            border: `1px solid ${prediction?.winner === 'home' ? '#0096FF' : 'var(--color-border)'}`,
-            borderRadius: 'var(--radius-lg)', cursor: isLocked ? 'default' : 'pointer',
+            background: winner === 'home' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
+            border: `1px solid ${winner === 'home' ? '#0096FF' : 'var(--color-border)'}`,
+            borderRadius: 'var(--radius-lg)',
             transition: 'all 0.2s',
-            boxShadow: prediction?.winner === 'home' ? 'var(--glow-blue)' : 'none',
+            boxShadow: winner === 'home' ? 'var(--glow-blue)' : 'none',
           }}
         >
           {homeFlag
@@ -134,41 +165,34 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
           <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>
             {homeTeamName}
           </span>
-        </button>
+        </div>
 
-        {/* vs / Draw */}
+        {/* vs / draw indicator (read-only label, reflects the score) */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', color: 'var(--color-text-dim)', letterSpacing: '0.05em' }}>VS</span>
-          {!isKnockout && match.home_team && match.away_team && (
-            <button
-              onClick={() => handleWinnerClick('draw')}
-              disabled={isLocked}
-              style={{
-                padding: '4px 12px', fontSize: '0.7rem', fontWeight: 700,
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                background: prediction?.winner === 'draw' ? 'rgba(255,100,0,0.2)' : 'transparent',
-                border: `1px solid ${prediction?.winner === 'draw' ? '#FF6400' : 'var(--color-border)'}`,
-                borderRadius: 'var(--radius-full)', color: prediction?.winner === 'draw' ? '#FF6400' : 'var(--color-text-muted)',
-                cursor: isLocked ? 'default' : 'pointer', transition: 'all 0.2s',
-              }}
-            >
+          {winner === 'draw' && (
+            <span style={{
+              padding: '4px 12px', fontSize: '0.7rem', fontWeight: 700,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              background: 'rgba(255,100,0,0.2)',
+              border: '1px solid #FF6400',
+              borderRadius: 'var(--radius-full)', color: '#FF6400',
+            }}>
               DRAW
-            </button>
+            </span>
           )}
         </div>
 
         {/* Away team */}
-        <button
-          onClick={() => handleWinnerClick('away')}
-          disabled={isLocked || !match.away_team}
+        <div
           style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 'var(--space-2)', padding: 'var(--space-4) var(--space-2)',
-            background: prediction?.winner === 'away' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
-            border: `1px solid ${prediction?.winner === 'away' ? '#0096FF' : 'var(--color-border)'}`,
-            borderRadius: 'var(--radius-lg)', cursor: isLocked ? 'default' : 'pointer',
+            background: winner === 'away' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
+            border: `1px solid ${winner === 'away' ? '#0096FF' : 'var(--color-border)'}`,
+            borderRadius: 'var(--radius-lg)',
             transition: 'all 0.2s',
-            boxShadow: prediction?.winner === 'away' ? 'var(--glow-blue)' : 'none',
+            boxShadow: winner === 'away' ? 'var(--glow-blue)' : 'none',
           }}
         >
           {awayFlag
@@ -178,11 +202,12 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
           <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>
             {awayTeamName}
           </span>
-        </button>
+        </div>
       </div>
 
-      {/* Score prediction — editable while open, read-only once locked/live/finished */}
-      {prediction?.winner && (
+      {/* Score prediction — the ONLY way to set a prediction now.
+          Editable while open, read-only once locked/live/finished. */}
+      {showPredictionBox && (
         <div style={{
           background: 'var(--color-surface-3)', borderRadius: 'var(--radius-lg)',
           padding: 'var(--space-4)', border: '1px solid rgba(0,150,255,0.15)',
@@ -192,8 +217,9 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
             color: 'var(--color-cyan)', textTransform: 'uppercase',
             textAlign: 'center', marginBottom: 'var(--space-3)',
           }}>
-            {isLocked ? 'YOUR PREDICTED SCORE' : '⚡ EXACT SCORE (+10 BONUS PTS)'}
+            {isLocked ? 'YOUR PREDICTED SCORE' : '⚡ PREDICT THE SCORE (+10 BONUS PTS)'}
           </div>
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)' }}>
             {/* Home score */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -213,7 +239,7 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
                 background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent', backgroundClip: 'text',
                 minWidth: 32, textAlign: 'center', letterSpacing: '0.05em',
-              }}>{prediction.homeScore ?? 0}</span>
+              }}>{prediction?.homeScore ?? 0}</span>
               {!isLocked && (
                 <button
                   onClick={() => updateScore('home', 1)}
@@ -226,7 +252,9 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
                 >+</button>
               )}
             </div>
+
             <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', color: 'var(--color-text-muted)' }}>–</span>
+
             {/* Away score */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               {!isLocked && (
@@ -245,7 +273,7 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
                 background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent', backgroundClip: 'text',
                 minWidth: 32, textAlign: 'center', letterSpacing: '0.05em',
-              }}>{prediction.awayScore ?? 0}</span>
+              }}>{prediction?.awayScore ?? 0}</span>
               {!isLocked && (
                 <button
                   onClick={() => updateScore('away', 1)}
@@ -259,6 +287,25 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
               )}
             </div>
           </div>
+
+          {/* SET 0-0 — only before the user has made any prediction at all */}
+          {showSetZeroDraw && (
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-3)' }}>
+              <button
+                onClick={handleSetZeroDraw}
+                style={{
+                  padding: '6px 16px', fontSize: '0.72rem', fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  background: 'rgba(255,100,0,0.12)',
+                  border: '1px solid rgba(255,100,0,0.4)',
+                  borderRadius: 'var(--radius-full)', color: '#FF8A3D',
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }}
+              >
+                SET 0–0
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
