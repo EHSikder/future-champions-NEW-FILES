@@ -75,7 +75,7 @@ export default function BottomNav() {
       <Link
         href="/mcq"
         className={`bottom-nav-item bottom-nav-mcq ${isActive('/mcq') ? 'active' : ''}`}
-        aria-label={t('nav_mcq') || 'MCQ'}
+        aria-label={t('nav_mcq') || 'QUIZ'}
       >
         <span className="mcq-ring" aria-hidden="true" />
         <span className="mcq-label">{t('nav_mcq') || 'MCQ'}</span>
