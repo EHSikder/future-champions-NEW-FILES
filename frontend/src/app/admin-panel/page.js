@@ -400,12 +400,11 @@ export default function AdminPage() {
                 { label: 'Full Tournament (Grand)', prize: '$1,000 Cash', color: 'var(--color-golden-yellow)' },
                 { label: 'Round 1 — Group Stage', prize: 'Voucher', color: 'var(--color-electric-blue)' },
                 { label: 'Round 2 — R32 & R16', prize: 'Voucher', color: 'var(--color-deep-purple)' },
-                { label: 'Round 3 — QF & SF', prize: 'Voucher', color: 'var(--color-vibrant-orange)' },
-                { label: 'Round 4 — Final', prize: 'Voucher', color: 'var(--color-golden-yellow)' },
-              ].map((p, i) => (
+                { label: 'Round 3 — QF, SF & Final', prize: 'Voucher', color: 'var(--color-vibrant-orange)' },
+              ].map((p, i, arr) => (
                 <div key={i} style={{
                   display: 'flex', justifyContent: 'space-between',
-                  padding: 'var(--space-3) 0', borderBottom: i < 4 ? '1px solid var(--color-border)' : 'none',
+                  padding: 'var(--space-3) 0', borderBottom: i < arr.length - 1 ? '1px solid var(--color-border)' : 'none',
                 }}>
                   <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{p.label}</span>
                   <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.1rem', color: p.color, letterSpacing: '0.05em' }}>{p.prize}</span>
