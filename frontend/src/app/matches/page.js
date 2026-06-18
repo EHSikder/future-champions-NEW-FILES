@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import MatchCard from '@/components/predictions/MatchCard';
@@ -32,6 +32,11 @@ export default function MatchesPage() {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [isAuthenticated, authLoading, router]);
 
+  // Mirror saved predictions in a ref so background refreshes can detect
+  // which matches the user has edited locally (and must NOT be overwritten).
+  const savedRef = useRef({});
+  useEffect(() => { savedRef.current = savedPredictions; }, [savedPredictions]);
+
   // Fetch data + set up realtime
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
@@ -39,101 +44,137 @@ export default function MatchesPage() {
     let channel = null;
     let debounceTimer = null;
     let pollInterval = null;
+    let cancelled = false;
 
-    const fetchData = async () => {
-      setLoading(true);
+    // Map raw prediction rows → our local shape, keyed by match_number
+    const buildPredsObj = (predsData, matchMap) => {
+      const obj = {};
+      predsData.forEach(p => {
+        const match = matchMap[p.match_number];
+        let winner = null;
+        if (p.predicted_winner_team_id === null) {
+          winner = 'draw';
+        } else if (match?.home_team?.id && p.predicted_winner_team_id === match.home_team.id) {
+          winner = 'home';
+        } else if (match?.away_team?.id && p.predicted_winner_team_id === match.away_team.id) {
+          winner = 'away';
+        }
+        obj[p.match_number] = {
+          winner,
+          homeScore:             p.predicted_home_score ?? 0,
+          awayScore:             p.predicted_away_score ?? 0,
+          predictedWinnerTeamId: p.predicted_winner_team_id,
+          isLocked:              p.is_locked,
+          lockedReason:          p.locked_reason,
+          pointsEarned:          p.points_earned,
+        };
+      });
+      return obj;
+    };
+
+    // initial=true  → first load: show spinner + also load leaderboard & QUIZ.
+    // initial=false → silent background refresh: update scores/locks WITHOUT a
+    //                 full-page spinner and WITHOUT wiping unsaved predictions.
+    const fetchData = async ({ initial = false } = {}) => {
+      if (initial) setLoading(true);
       try {
         const [resMatches, resPreds] = await Promise.all([
           api.get('/api/matches'),
           api.get('/api/predictions'),
         ]);
+        if (cancelled) return;
 
-        const allMatches = resMatches.data;
+        const allMatches = [...resMatches.data];
         allMatches.sort((a, b) => {
           if (!a.kickoff_time) return 1;
           if (!b.kickoff_time) return -1;
           return new Date(a.kickoff_time) - new Date(b.kickoff_time);
         });
-        setMatches(allMatches);
 
         const matchMap = {};
         allMatches.forEach(m => { matchMap[m.match_number] = m; });
 
-        const predsData = resPreds.data.predictions || [];
-        const predsObj  = {};
+        const predsObj = buildPredsObj(resPreds.data.predictions || [], matchMap);
 
-        predsData.forEach(p => {
-          const match = matchMap[p.match_number];
-          let winner = null;
-          if (p.predicted_winner_team_id === null) {
-            winner = 'draw';
-          } else if (match?.home_team?.id && p.predicted_winner_team_id === match.home_team.id) {
-            winner = 'home';
-          } else if (match?.away_team?.id && p.predicted_winner_team_id === match.away_team.id) {
-            winner = 'away';
-          }
+        setMatches(allMatches);
 
-          predsObj[p.match_number] = {
-            winner,
-            homeScore:             p.predicted_home_score ?? 0,
-            awayScore:             p.predicted_away_score ?? 0,
-            predictedWinnerTeamId: p.predicted_winner_team_id,
-            isLocked:              p.is_locked,
-            lockedReason:          p.locked_reason,
-            pointsEarned:          p.points_earned,
-          };
+        // Merge: keep the user's UNSAVED edits, refresh everything else from
+        // the server. A match counts as "edited" when the working copy differs
+        // from the last saved snapshot; locked matches always take the server
+        // value (they can no longer be changed anyway).
+        const prevSaved = savedRef.current;
+        setPredictions(prev => {
+          const merged = { ...predsObj };
+          Object.keys(prev).forEach(mn => {
+            const wasEdited = JSON.stringify(prev[mn]) !== JSON.stringify(prevSaved[mn]);
+            if (wasEdited && !predsObj[mn]?.isLocked) merged[mn] = prev[mn];
+          });
+          return merged;
         });
-
-        setPredictions(predsObj);
         setSavedPredictions(predsObj);
 
-        // Fetch leaderboard standing
-        api.get('/api/leaderboard?limit=200').then(resLb => {
-          const lbData = Array.isArray(resLb) ? resLb : (resLb.data || []);
-          if (lbData.length > 0) setTopPlayer(lbData[0]);
-          const me = lbData.find(u => u.id === user.id);
-          if (me) setUserStanding(me);
-        }).catch(() => {});
+        // Heavier, less time-sensitive data only on the first load.
+        if (initial) {
+          api.get('/api/leaderboard?limit=200').then(resLb => {
+            const lbData = Array.isArray(resLb) ? resLb : (resLb.data || []);
+            if (lbData.length > 0) setTopPlayer(lbData[0]);
+            const me = lbData.find(u => u.id === user.id);
+            if (me) setUserStanding(me);
+          }).catch(() => {});
 
-        // Check for active MCQ
-        api.get('/api/mcq/active').then(resMcq => {
-          if (resMcq.data?.active) setActiveMcq(resMcq.data);
-        }).catch(() => {});
-
+          api.get('/api/mcq/active').then(resMcq => {
+            if (resMcq.data?.active) setActiveMcq(resMcq.data);
+          }).catch(() => {});
+        }
       } catch (err) {
-        setError(err.message || 'Failed to load data');
+        if (!cancelled) setError(err.message || 'Failed to load data');
       } finally {
-        setLoading(false);
+        if (initial && !cancelled) setLoading(false);
       }
     };
 
-    // Debounced fetch — waits 5s after last realtime event before fetching
-    const debouncedFetch = () => {
+    // Debounced lightweight refresh — runs a few seconds after the last
+    // realtime event so a burst of match updates triggers a single fetch.
+    const debouncedRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(fetchData, 5000);
+      debounceTimer = setTimeout(() => fetchData({ initial: false }), 4000);
     };
 
-    fetchData();
+    fetchData({ initial: true });
 
-    // Realtime: only listen for match changes (scores, status)
+    // Realtime: refresh (without clobbering drafts) when matches change.
     if (supabase) {
       channel = supabase
         .channel('matches-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
-          debouncedFetch();
+          debouncedRefresh();
         })
         .subscribe();
     }
 
-    // Gentle polling fallback every 2 minutes
-    pollInterval = setInterval(fetchData, 120000);
+    // Fallback poll every 3 minutes, paused while the tab is hidden so we
+    // don't keep hitting the backend for users who left the page open.
+    pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchData({ initial: false });
+    }, 180000);
 
     return () => {
+      cancelled = true;
       if (channel) supabase?.removeChannel(channel);
       if (debounceTimer) clearTimeout(debounceTimer);
       if (pollInterval) clearInterval(pollInterval);
     };
   }, [isAuthenticated, user?.id]);
+
+  // Warn before leaving the page with unsaved predictions.
+  useEffect(() => {
+    const handler = (e) => {
+      if (hasUnsavedChanges) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
 
   const handlePredictionChange = (matchNumber, field, value) => {
     setPredictions(prev => {
@@ -210,8 +251,8 @@ export default function MatchesPage() {
 
         {/* Image Banner */}
         <PageBanner
-          title=""
-          subtitle=""
+          title="MATCH PREDICTIONS"
+          subtitle="Predict winners & exact scores to earn points"
           right={userStanding && (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Your Rank</div>
@@ -243,7 +284,7 @@ export default function MatchesPage() {
                   fontFamily: 'var(--font-hero)', fontSize: '1.2rem', letterSpacing: '0.1em',
                   background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                }}>BONUS MCQ — +5 POINTS</div>
+                }}>BONUS QUIZ — +5 POINTS</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Answer correctly to earn bonus points!</div>
               </div>
             </div>
@@ -280,7 +321,7 @@ export default function MatchesPage() {
 
         {mcqSubmitted && (
           <div className="alert alert-success" style={{ marginBottom: 'var(--space-5)' }}>
-            ✅ MCQ submitted! Bonus points will be awarded if your answer is correct.
+            ✅ QUIZ submitted! Bonus points will be awarded if your answer is correct.
           </div>
         )}
 
