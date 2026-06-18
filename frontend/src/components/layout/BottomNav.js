@@ -78,7 +78,7 @@ export default function BottomNav() {
         aria-label={t('nav_mcq') || 'QUIZ'}
       >
         <span className="mcq-ring" aria-hidden="true" />
-        <span className="mcq-label">{t('nav_mcq') || 'MCQ'}</span>
+        <span className="mcq-label">{t('nav_mcq') || 'QUIZ'}</span>
       </Link>
 
       {rightItems.map(({ href, label, Icon }) => (
