@@ -45,6 +45,7 @@ export default function Header() {
         <nav className="header-nav">
           <Link href="/">{t('nav_home')}</Link>
           <Link href="/matches">{t('nav_matches')}</Link>
+          <Link href="/quiz">{t('nav_mcq')}</Link>
           <Link href="/leaderboard">{t('nav_leaderboard')}</Link>
         </nav>
 
@@ -113,6 +114,7 @@ export default function Header() {
             </div>
             <Link href="/" onClick={() => setMobileOpen(false)}>{t('nav_home')}</Link>
             <Link href="/matches" onClick={() => setMobileOpen(false)}>{t('nav_matches')}</Link>
+            <Link href="/quiz" onClick={() => setMobileOpen(false)}>{t('nav_mcq')}</Link>
             <Link href="/leaderboard" onClick={() => setMobileOpen(false)}>{t('nav_leaderboard')}</Link>
             {isAuthenticated ? (
               <>
