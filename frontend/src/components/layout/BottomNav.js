@@ -71,10 +71,10 @@ export default function BottomNav() {
         </Link>
       ))}
 
-      {/* ── MCQ center button — glowing, rotating neon ring + label ── */}
+      {/* ── QUIZ center button — glowing, rotating neon ring + label ── */}
       <Link
-        href="/mcq"
-        className={`bottom-nav-item bottom-nav-mcq ${isActive('/mcq') ? 'active' : ''}`}
+        href="/quiz"
+        className={`bottom-nav-item bottom-nav-mcq ${isActive('/quiz') ? 'active' : ''}`}
         aria-label={t('nav_mcq') || 'QUIZ'}
       >
         <span className="mcq-ring" aria-hidden="true" />
