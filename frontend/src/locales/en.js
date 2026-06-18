@@ -33,8 +33,7 @@ export const en = {
   prize_grand_desc: "Top predictor across the entire tournament",
   prize_r1_label: "Round 1 — Group Stage",
   prize_r2_label: "Round 2 — R32 & R16",
-  prize_r3_label: "Round 3 — QF & SF",
-  prize_r4_label: "Round 4 — Final",
+  prize_r3_label: "Round 3 — QF, SF & Final",
   prize_voucher: "Voucher Prize",
 
   // Scoring
