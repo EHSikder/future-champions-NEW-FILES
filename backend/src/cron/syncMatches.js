@@ -63,30 +63,39 @@ async function runSync() {
         // Find the match in our DB by worldcupapi_fixture_id
         const { data: existingMatch } = await supabase
           .from('matches')
-          .select('id, match_number')
+          .select('id, match_number, kickoff_time, home_team_id, away_team_id, home_placeholder, away_placeholder')
           .eq('worldcupapi_fixture_id', parsed.fixtureId)
           .single();
 
         if (existingMatch) {
-          // Update existing match
-          const updates = {
-            kickoff_time: parsed.kickoffTime,
-            updated_at: new Date().toISOString(),
-          };
-          if (homeTeamId) updates.home_team_id = homeTeamId;
-          if (awayTeamId) updates.away_team_id = awayTeamId;
-          if (raw.home?.name) updates.home_placeholder = raw.home.name;
-          if (raw.away?.name) updates.away_placeholder = raw.away.name;
+          // Build an update with ONLY the fields that actually changed. Writing
+          // unchanged rows every run bumps updated_at and fires a Supabase
+          // realtime event for every match, which makes every client refetch —
+          // so we skip the write entirely when nothing differs.
+          const updates = {};
 
-          const { error } = await supabase
-            .from('matches')
-            .update(updates)
-            .eq('id', existingMatch.id);
+          const kickoffChanged =
+            parsed.kickoffTime &&
+            new Date(parsed.kickoffTime).getTime() !== new Date(existingMatch.kickoff_time || 0).getTime();
+          if (kickoffChanged) updates.kickoff_time = parsed.kickoffTime;
 
-          if (error) {
-            console.error('[SyncMatches] Update error for fixture', parsed.fixtureId, error.message);
-          } else {
-            matchesUpdated++;
+          if (homeTeamId && homeTeamId !== existingMatch.home_team_id) updates.home_team_id = homeTeamId;
+          if (awayTeamId && awayTeamId !== existingMatch.away_team_id) updates.away_team_id = awayTeamId;
+          if (raw.home?.name && raw.home.name !== existingMatch.home_placeholder) updates.home_placeholder = raw.home.name;
+          if (raw.away?.name && raw.away.name !== existingMatch.away_placeholder) updates.away_placeholder = raw.away.name;
+
+          if (Object.keys(updates).length > 0) {
+            updates.updated_at = new Date().toISOString();
+            const { error } = await supabase
+              .from('matches')
+              .update(updates)
+              .eq('id', existingMatch.id);
+
+            if (error) {
+              console.error('[SyncMatches] Update error for fixture', parsed.fixtureId, error.message);
+            } else {
+              matchesUpdated++;
+            }
           }
         }
         // Note: we don't auto-create matches from the API because match_number
@@ -112,7 +121,7 @@ async function runSync() {
         // Find the match by worldcupapi_fixture_id
         const { data: existingMatch } = await supabase
           .from('matches')
-          .select('id, match_number, status')
+          .select('id, match_number, status, home_score, away_score, home_extra_time_score, away_extra_time_score, home_penalty_score, away_penalty_score, winner_team_id')
           .eq('worldcupapi_fixture_id', parsed.fixtureId)
           .single();
 
@@ -124,28 +133,37 @@ async function runSync() {
         const winnerApiId = getWinnerApiId(parsed);
         const winnerTeamId = await resolveTeamUuid(winnerApiId);
 
-        const updates = {
-          status: parsed.status,
-          home_score: parsed.homeScore,
-          away_score: parsed.awayScore,
+        // Only write the columns whose value actually changed. This keeps a
+        // still match (no new goals) from triggering a needless write +
+        // realtime event on every 5-minute sync.
+        const candidate = {
+          status:                parsed.status,
+          home_score:            parsed.homeScore,
+          away_score:            parsed.awayScore,
           home_extra_time_score: parsed.homeExtraTimeScore,
           away_extra_time_score: parsed.awayExtraTimeScore,
-          home_penalty_score: parsed.homePenaltyScore,
-          away_penalty_score: parsed.awayPenaltyScore,
-          updated_at: new Date().toISOString(),
+          home_penalty_score:    parsed.homePenaltyScore,
+          away_penalty_score:    parsed.awayPenaltyScore,
         };
+        if (winnerTeamId) candidate.winner_team_id = winnerTeamId;
 
-        if (winnerTeamId) updates.winner_team_id = winnerTeamId;
+        const updates = {};
+        for (const [key, value] of Object.entries(candidate)) {
+          if (value !== undefined && value !== existingMatch[key]) updates[key] = value;
+        }
 
-        const { error } = await supabase
-          .from('matches')
-          .update(updates)
-          .eq('id', existingMatch.id);
+        if (Object.keys(updates).length > 0) {
+          updates.updated_at = new Date().toISOString();
+          const { error } = await supabase
+            .from('matches')
+            .update(updates)
+            .eq('id', existingMatch.id);
 
-        if (error) {
-          console.error('[SyncMatches] Live update error for match', existingMatch.match_number, error.message);
-        } else {
-          matchesUpdated++;
+          if (error) {
+            console.error('[SyncMatches] Live update error for match', existingMatch.match_number, error.message);
+          } else {
+            matchesUpdated++;
+          }
         }
       } catch (err) {
         console.error('[SyncMatches] Error processing live match:', err.message);
