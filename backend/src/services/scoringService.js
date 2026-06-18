@@ -107,34 +107,19 @@ if (drawMatch || teamMatch) {
 }
 
 /**
- * Recalculate a user's total points from all their predictions
+ * Recalculate a user's points.
+ *
+ * The authoritative scoring logic lives in the database function
+ * recalculate_user_points (3 rounds, MCQ folded into its round,
+ * total = round1 + round2 + round3 + champion). We delegate to it so this
+ * Node path can never diverge from the trigger-based scoring and the per-round
+ * columns stay correct.
  */
 async function recalculateUserPoints(userId) {
-  const { data, error } = await supabase
-    .from('predictions')
-    .select('points_earned')
-    .eq('user_id', userId);
-
+  const { error } = await supabase.rpc('recalculate_user_points', { p_user_id: userId });
   if (error) {
     console.error(`Failed to recalculate points for ${userId}:`, error.message);
-    return;
   }
-
-  const total = (data || []).reduce((sum, p) => sum + (p.points_earned || 0), 0);
-
-  // Also add champion prediction points
-  const { data: champPred } = await supabase
-    .from('champion_predictions')
-    .select('points_earned')
-    .eq('user_id', userId)
-    .single();
-
-  const champPoints = champPred?.points_earned || 0;
-
-  await supabase
-    .from('users')
-    .update({ total_points: total + champPoints })
-    .eq('id', userId);
 }
 
 /**
