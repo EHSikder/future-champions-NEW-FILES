@@ -13,7 +13,7 @@ export default function Footer() {
           <div className="footer-brand">
             <h3>FUTURE CHAMPIONS</h3>
             <p>
-              Predict FIFA World Cup match results, earn points every round, unlock bonus MCQ challenges,
+              Predict FIFA World Cup match results, earn points every round, unlock bonus QUIZ challenges,
               and compete for the Cahs Prize and exclusive vouchers in the Future Champions Prediction Challenge.
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
