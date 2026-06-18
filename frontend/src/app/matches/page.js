@@ -210,8 +210,8 @@ export default function MatchesPage() {
 
         {/* Image Banner */}
         <PageBanner
-          title="MATCH PREDICTIONS"
-          subtitle="Predict winners & exact scores to earn points"
+          title=""
+          subtitle=""
           right={userStanding && (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Your Rank</div>
