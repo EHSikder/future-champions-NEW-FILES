@@ -273,9 +273,9 @@ export default function HomePage() {
               <div style={{
                 fontFamily: 'var(--font-hero)', fontSize: '1.8rem', letterSpacing: '0.08em',
                 color: '#fff', marginBottom: 'var(--space-2)',
-              }}>MINI MCQ BONUS ROUNDS</div>
+              }}>MINI QUIZ BONUS ROUNDS</div>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-                After each stage of FIFA games, unlock a special Mini MCQ with questions about Future Champions.
+                After each stage of FIFA games, unlock a special Mini QUIZ with questions about Future Champions.
                 Every correct answer earns you an extra <strong style={{ color: 'var(--color-golden-yellow)' }}>+5 bonus points</strong>!
               </p>
             </div>
