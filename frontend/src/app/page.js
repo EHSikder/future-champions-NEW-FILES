@@ -172,13 +172,12 @@ export default function HomePage() {
 
           {/* Round Vouchers */}
           <div className="prizes-grid" style={{
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-4)'
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)'
           }}>
             {[
               { label: 'Round 1', desc: 'Group Stage', icon: '⚽', color: '#0096FF' },
               { label: 'Round 2', desc: 'R32 & Round of 16', icon: '🎯', color: '#7800C8' },
-              { label: 'Round 3', desc: 'Quarter & Semi-Finals', icon: '🔥', color: '#FF6400' },          
-              
+              { label: 'Round 3', desc: 'Quarter, Semis & Final', icon: '🔥', color: '#FF6400' },
             ].map((prize, i) => (
               <div key={i} style={{
                 background: 'var(--color-surface-2)',
