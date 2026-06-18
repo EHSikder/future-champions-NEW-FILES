@@ -66,22 +66,20 @@ export const SCORING_TABLE = [
 // MCQ bonus points per correct answer
 export const MCQ_BONUS_POINTS = 5;
 
-// Prize structure
+// Prize structure — 3 rounds (round 3 now includes the Final)
 export const PRIZE_STRUCTURE = {
   grand: { label: 'Full Tournament', prize: '$1,000 Cash', desc: 'Top predictor across all rounds' },
   round_1: { label: 'Round 1 (Group Stage)', prize: 'Voucher', desc: '1 winner' },
   round_2: { label: 'Round 2 (R32 & R16)', prize: 'Voucher', desc: '1 winner' },
-  round_3: { label: 'Round 3 (QF & SF)', prize: 'Voucher', desc: '1 winner' },
-  round_4: { label: 'Round 4 (Final)', prize: 'Voucher', desc: '1 winner' },
+  round_3: { label: 'Round 3 (QF, SF & Final)', prize: 'Voucher', desc: '1 winner' },
 };
 
-// Round groups for leaderboard tabs
+// Round groups for leaderboard tabs — round 3 covers QF, SF and the Final
 export const LEADERBOARD_ROUNDS = {
   overall: { label: 'Overall', rounds: null },
   group_stage: { label: 'Round 1 — Group Stage', rounds: ['group_stage'] },
   round_of_32_16: { label: 'Round 2 — R32 & R16', rounds: ['round_of_32', 'round_of_16'] },
-  quarterfinal_semifinal: { label: 'Round 3 — QF & SF', rounds: ['quarterfinal', 'semifinal'] },
-  final: { label: 'Round 4 — Final', rounds: ['final'] },
+  quarterfinal_semifinal: { label: 'Round 3 — QF, SF & Final', rounds: ['quarterfinal', 'semifinal', 'final', 'third_place'] },
 };
 
 export const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
