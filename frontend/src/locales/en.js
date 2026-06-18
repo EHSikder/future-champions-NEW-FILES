@@ -11,7 +11,7 @@ export const en = {
   hero_badge: "Future Champions Prediction Challenge",
   hero_title: "FUTURE CHAMPIONS",
   hero_subtitle: "WIN $1,000",
-  hero_desc_1: "Predict match results and scores, earn points every round, unlock bonus MCQ challenges, and become the Future Champion.",
+  hero_desc_1: "Predict match results and scores, earn points every round, unlock bonus QUIZ challenges, and become the Future Champion.",
   hero_cta_primary: "PREDICT NOW",
   hero_cta_secondary: "VIEW LEADERBOARD",
 
@@ -43,7 +43,7 @@ export const en = {
   scoring_pts: "pts",
   scoring_exact_bonus_title: "⚡ EXACT SCORE BONUS",
   scoring_exact_bonus_desc: "Earn 10 bonus points in any round when you predict the exact final score.",
-  scoring_mcq_title: "MINI MCQ BONUS ROUNDS",
+  scoring_mcq_title: "MINI QUIZ BONUS ROUNDS",
   scoring_mcq_desc: "After each stage, answer company questions for +5 bonus points each.",
 
   // Scoring rounds
@@ -67,7 +67,7 @@ export const en = {
 
   // Footer
   footer_brand_name: "Future Champions",
-  footer_brand_desc: "Predict FIFA World Cup match results, earn points every round, unlock bonus MCQ challenges, and compete for $1,000 and exclusive vouchers in the Future Champions Prediction Challenge.",
+  footer_brand_desc: "Predict FIFA World Cup match results, earn points every round, unlock bonus QUIZ challenges, and compete for $1,000 and exclusive vouchers in the Future Champions Prediction Challenge.",
   footer_nav_title: "Navigation",
   footer_nav_home: "Home",
   footer_nav_matches: "Matches",
@@ -90,7 +90,7 @@ export const en = {
   lb_col_user: "Player",
   lb_grand_champion_title: "Grand Prize:",
   lb_grand_champion_subtitle: "Top predictor wins it all",
-  nav_mcq: 'MCQ',
+  nav_mcq: 'QUIZ',
 
   // Matches / Predictions
   matches_title: "MATCH PREDICTIONS",
@@ -101,8 +101,8 @@ export const en = {
   pred_exact_score: "EXACT SCORE (+10 BONUS PTS)",
   pred_draw: "DRAW",
 
-  // MCQ
-  mcq_title: "BONUS MCQ",
+  // QUIZ
+  mcq_title: "BONUS QUIZ",
   mcq_subtitle: "Answer correctly to earn +5 bonus points",
   mcq_submit: "SUBMIT ANSWER",
   mcq_success: "Answer submitted! Bonus points awarded if correct.",
