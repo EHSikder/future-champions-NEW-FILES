@@ -2,97 +2,49 @@ const express = require('express');
 const router  = express.Router();
 const supabase = require('../config/database');
 
-// Round groupings for leaderboard tabs
-const ROUND_GROUPS = {
-  group_stage:              ['group_stage'],
-  round_of_32_16:           ['round_of_32', 'round_of_16'],
-  quarterfinal_semifinal:   ['quarterfinal', 'semifinal'],
-  final:                    ['final'],
+// Each leaderboard tab maps to ONE authoritative, pre-computed column on the
+// users table (kept in sync by the DB function recalculate_user_points). Both
+// "overall" and the round tabs now read from the same source, so a round total
+// can never disagree with the overall total. Round 3 already includes the Final
+// (the system is 3 rounds — round 4 was merged into round 3).
+const ROUND_COLUMN = {
+  group_stage:              'points_round_1',
+  round_of_32_16:           'points_round_2',
+  quarterfinal_semifinal:   'points_round_3',
 };
 
 /**
  * GET /api/leaderboard
  * Query params:
  *   limit   - max results (default 50, max 200)
- *   round   - round group key: group_stage | round_of_32_16 | quarterfinal_semifinal | final
- *             omit for overall leaderboard
+ *   round   - round key: group_stage | round_of_32_16 | quarterfinal_semifinal
+ *             omit for the overall leaderboard (uses total_points)
  */
 router.get('/', async (req, res, next) => {
   try {
     const limit      = Math.min(parseInt(req.query.limit, 10) || 50, 200);
-    const roundGroup = req.query.round; // optional round group key
+    const roundGroup = req.query.round; // optional round key
 
-    // Overall leaderboard — use stored total_points
-    if (!roundGroup || !ROUND_GROUPS[roundGroup]) {
-      const { data: users, error } = await supabase
-        .from('users')
-        .select('id, full_name, display_name, total_points')
-        .order('total_points', { ascending: false })
-        .order('created_at', { ascending: true })  // tie-break by signup date
-        .limit(limit);
+    // Pick the points column: a specific round bucket, or the overall total.
+    // pointsCol comes from a fixed whitelist, so it is safe to interpolate.
+    const pointsCol = ROUND_COLUMN[roundGroup] || 'total_points';
 
-      if (error) throw error;
-
-      const ranked = (users || []).map((u, i) => ({
-        ...u,
-        full_name:    u.full_name    || u.display_name || 'Player',
-        display_name: u.display_name || u.full_name    || 'Player',
-        rank: i + 1,
-      }));
-
-      return res.json(ranked);
-    }
-    // Round-specific leaderboard — aggregate points from predictions in those rounds
-    const rounds = ROUND_GROUPS[roundGroup];
-
-    const { data: preds, error: predErr } = await supabase
-      .from('predictions')
-      .select(`
-        user_id,
-        points_earned,
-        matches!inner(round)
-      `)
-      .in('matches.round', rounds)
-      .eq('is_locked', true);
-
-    if (predErr) throw predErr;
-
-    // Also include MCQ bonus points for this round group
-    const { data: mcqAnswers } = await supabase
-      .from('mcq_answers')
-      .select('user_id, points_earned, mcq_questions!inner(round_trigger)')
-      .in('mcq_questions.round_trigger', rounds)
-      .eq('is_correct', true);
-
-    // Aggregate by user
-    const userPoints = {};
-    for (const p of (preds || [])) {
-      if (!userPoints[p.user_id]) userPoints[p.user_id] = 0;
-      userPoints[p.user_id] += p.points_earned || 0;
-    }
-    for (const a of (mcqAnswers || [])) {
-      if (!userPoints[a.user_id]) userPoints[a.user_id] = 0;
-      userPoints[a.user_id] += a.points_earned || 0;
-    }
-
-    // Fetch ALL users (not just those with predictions) so everyone appears
-    const { data: users, error: userErr } = await supabase
+    const { data: users, error } = await supabase
       .from('users')
-      .select('id, full_name, display_name')
-      .order('created_at', { ascending: true });
+      .select(`id, full_name, display_name, ${pointsCol}`)
+      .order(pointsCol, { ascending: false })
+      .order('created_at', { ascending: true })  // tie-break by signup date
+      .limit(limit);
 
-    if (userErr) throw userErr;
+    if (error) throw error;
 
-    const ranked = (users || [])
-      .map(u => ({
-        ...u,
-        full_name:    u.full_name    || u.display_name || 'Player',
-        display_name: u.display_name || u.full_name    || 'Player',
-        total_points: userPoints[u.id] || 0,
-      }))
-      .sort((a, b) => b.total_points - a.total_points)
-      .slice(0, limit)
-      .map((u, i) => ({ ...u, rank: i + 1 }));
+    const ranked = (users || []).map((u, i) => ({
+      id:           u.id,
+      full_name:    u.full_name    || u.display_name || 'Player',
+      display_name: u.display_name || u.full_name    || 'Player',
+      total_points: u[pointsCol] ?? 0,   // the UI reads `total_points` for every tab
+      rank:         i + 1,
+    }));
 
     res.json(ranked);
   } catch (err) {
