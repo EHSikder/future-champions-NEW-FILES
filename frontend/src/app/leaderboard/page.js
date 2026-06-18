@@ -24,7 +24,7 @@ const ROUND_TABS = [
   { id: 'overall', label: 'Overall', icon: '🏆' },
   { id: 'group_stage', label: 'Round 1', desc: 'Group Stage', icon: '⚽' },
   { id: 'round_of_32_16', label: 'Round 2', desc: 'R32 & R16', icon: '🎯' },
-  { id: 'quarterfinal_semifinal', label: 'Round 3', desc: 'QF & SF', icon: '🔥' },
+  { id: 'quarterfinal_semifinal', label: 'Round 3', desc: 'QF, SF & Final', icon: '🔥' },
 ];
 
 const ROUND_PRIZE = {
