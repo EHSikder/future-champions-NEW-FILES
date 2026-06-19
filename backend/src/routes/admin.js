@@ -396,6 +396,17 @@ router.get('/stats', adminAuth, async (req, res, next) => {
       .from('predictions')
       .select('*', { count: 'exact', head: true });
 
+    // Total matches (whole tournament)
+    const { count: totalMatches } = await supabase
+      .from('matches')
+      .select('*', { count: 'exact', head: true });
+
+    // Active QUIZ questions
+    const { count: activeMcqCount } = await supabase
+      .from('mcq_questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
     // Upcoming matches (scheduled knockout matches)
     const { data: upcomingMatches } = await supabase
       .from('matches')
@@ -433,6 +444,8 @@ router.get('/stats', adminAuth, async (req, res, next) => {
         verified_users: verifiedUsers || 0,
         predicting_users: predictingUsers || 0,
         total_predictions: totalPredictions || 0,
+        total_matches: totalMatches || 0,
+        active_mcq_count: activeMcqCount || 0,
         finished_knockout_matches: finishedMatches || 0,
         live_matches: liveMatches || [],
         upcoming_matches: upcomingMatches || [],
