@@ -32,8 +32,8 @@ router.post('/admin/mcq', adminAuth, async (req, res, next) => {
     const cleanQuestion = (question || '').trim();
     const cleanCorrect  = (correct_answer || '').trim();
 
-    if (!cleanQuestion || cleanOptions.length < 2 || !cleanCorrect || !round_trigger) {
-      return res.status(400).json({ success: false, message: 'Question, at least 2 options, a correct answer, and a trigger round are required.' });
+    if (!cleanQuestion || cleanOptions.length < 2 || !cleanCorrect) {
+      return res.status(400).json({ success: false, message: 'Question, at least 2 options, and a correct answer are required.' });
     }
     if (!cleanOptions.includes(cleanCorrect)) {
       return res.status(400).json({ success: false, message: 'The correct answer must exactly match one of the options.' });
@@ -41,7 +41,10 @@ router.post('/admin/mcq', adminAuth, async (req, res, next) => {
 
     const { data, error } = await supabase
       .from('mcq_questions')
-      .insert([{ question: cleanQuestion, options: cleanOptions, correct_answer: cleanCorrect, round_trigger, is_active: !!is_active }])
+      // A question is shown purely by being Active — no stage trigger needed.
+      // round_trigger still satisfies the NOT NULL column and attributes the
+      // bonus to round 1 for scoring; the admin never has to choose it.
+      .insert([{ question: cleanQuestion, options: cleanOptions, correct_answer: cleanCorrect, round_trigger: round_trigger || 'group_stage', is_active: !!is_active }])
       .select()
       .single();
 

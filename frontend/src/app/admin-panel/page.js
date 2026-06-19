@@ -181,22 +181,13 @@ function McqTab() {
     } catch {}
   };
 
-  const ROUND_OPTIONS = [
-    { value: 'group_stage', label: 'After Group Stage' },
-    { value: 'round_of_32', label: 'After Round of 32' },
-    { value: 'round_of_16', label: 'After Round of 16' },
-    { value: 'quarterfinal', label: 'After Quarter-Finals' },
-    { value: 'semifinal', label: 'After Semi-Finals' },
-    { value: 'final', label: 'After Final' },
-  ];
-
   return (
     <div>
       <h3 style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', letterSpacing: '0.08em', marginBottom: 'var(--space-6)', background: 'var(--gradient-blue-cyan)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
         MINI QUIZ MANAGEMENT
       </h3>
       <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-6)', fontSize: '0.9rem' }}>
-        Create bonus QUIZ questions triggered after each FIFA stage. Correct answers award +5 points to players.
+        Create bonus QUIZ questions. Any question marked <strong style={{ color: 'var(--color-success)' }}>Active</strong> is shown to players immediately. Correct answers award +5 points.
       </p>
 
       {/* Add / edit question form */}
@@ -249,34 +240,17 @@ function McqTab() {
               ))}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Trigger After Stage</label>
-              <select
-                className="form-input"
-                value={form.round_trigger}
-                onChange={e => setForm(f => ({ ...f, round_trigger: e.target.value }))}
-                style={{ background: 'var(--color-surface-3)', color: '#fff' }}
-              >
-                {ROUND_OPTIONS.map(r => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Status</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.is_active}
-                    onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
-                    style={{ width: 18, height: 18 }}
-                  />
-                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>Active (visible to players)</span>
-                </label>
-              </div>
-            </div>
+          <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
+            <label className="form-label">Visibility</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer', marginTop: 'var(--space-2)' }}>
+              <input
+                type="checkbox"
+                checked={form.is_active}
+                onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
+                style={{ width: 18, height: 18 }}
+              />
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>Active — show this question to players right now</span>
+            </label>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <button type="submit" className="btn btn-primary" disabled={saving} style={{ minWidth: 180 }}>
@@ -320,8 +294,8 @@ function McqTab() {
                       }}>{opt}{opt === q.correct_answer ? ' ✓' : ''}</span>
                     ))}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)' }}>
-                    Trigger: {ROUND_OPTIONS.find(r => r.value === q.round_trigger)?.label || q.round_trigger}
+                  <div style={{ fontSize: '0.75rem', color: q.is_active ? 'var(--color-success)' : 'var(--color-text-dim)' }}>
+                    {q.is_active ? '● Visible to players' : '○ Hidden (inactive)'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexShrink: 0 }}>
