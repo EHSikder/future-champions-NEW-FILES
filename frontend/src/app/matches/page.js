@@ -37,6 +37,12 @@ export default function MatchesPage() {
   const savedRef = useRef({});
   useEffect(() => { savedRef.current = savedPredictions; }, [savedPredictions]);
 
+  // One DOM node per match card so we can scroll the right one into view.
+  // Fires once on initial load only — background refreshes must not yank the
+  // page around while the user is scrolling/predicting.
+  const cardRefs = useRef(new Map());
+  const didAutoScroll = useRef(false);
+
   // Fetch data + set up realtime
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
@@ -175,6 +181,22 @@ export default function MatchesPage() {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
+
+  // After the first load, jump the user to the earliest non-finished match so
+  // they land where the action is. Matches are pre-sorted by kickoff_time
+  // ascending, so .find() gives the right one. Runs once per page mount.
+  useEffect(() => {
+    if (loading || didAutoScroll.current || !matches.length) return;
+    const target = matches.find(m => m.status !== 'finished');
+    if (!target) return; // tournament over — nothing to jump to
+    const el = cardRefs.current.get(target.match_number);
+    if (!el) return;
+    didAutoScroll.current = true;
+    // Wait a frame so layout settles after the spinner unmounts.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [loading, matches]);
 
   const handlePredictionChange = (matchNumber, field, value) => {
     setPredictions(prev => {
@@ -368,12 +390,19 @@ export default function MatchesPage() {
                 <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
               </div>
               {roundMatches.map(match => (
-                <MatchCard
+                <div
                   key={match.id}
-                  match={match}
-                  prediction={predictions[match.match_number]}
-                  onPredictionChange={handlePredictionChange}
-                />
+                  ref={(el) => {
+                    if (el) cardRefs.current.set(match.match_number, el);
+                    else   cardRefs.current.delete(match.match_number);
+                  }}
+                >
+                  <MatchCard
+                    match={match}
+                    prediction={predictions[match.match_number]}
+                    onPredictionChange={handlePredictionChange}
+                  />
+                </div>
               ))}
             </div>
           );
