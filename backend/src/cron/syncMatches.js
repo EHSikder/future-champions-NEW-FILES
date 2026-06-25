@@ -6,6 +6,7 @@ const {
   fetchLiveScores,
   parseEvent,
   getWinnerApiId,
+  canonTeam,
 } = require('../services/sportsDbApiService');
 
 const API_KEY = env.THESPORTSDB_API_KEY;
@@ -25,7 +26,9 @@ async function resolveTeam(apiId, apiName, ctx) {
   if (apiId && ctx.teamByApiId.has(apiId)) return ctx.teamByApiId.get(apiId).id;
 
   if (apiName) {
-    const t = ctx.teamByName.get(apiName.trim().toLowerCase());
+    // canonTeam folds accents/casing/aliases ("USA"↔"United States", etc.) so
+    // names line up even when TheSportsDB spells a team differently than our DB.
+    const t = ctx.teamByName.get(canonTeam(apiName));
     if (t) {
       if (apiId && !t.thesportsdb_id) {
         await supabase.from('teams').update({ thesportsdb_id: apiId }).eq('id', t.id);
@@ -34,6 +37,9 @@ async function resolveTeam(apiId, apiName, ctx) {
       }
       return t.id;
     }
+    // Couldn't match — record it (name + id) so the run logs exactly which
+    // teams need a manual thesportsdb_id, instead of a silent "unlinked" count.
+    if (ctx.unresolved && apiId) ctx.unresolved.set(apiName, apiId);
   }
   return null;
 }
@@ -96,7 +102,7 @@ async function buildContext() {
   const teamByName  = new Map();
   (teams || []).forEach(t => {
     if (t.thesportsdb_id) teamByApiId.set(String(t.thesportsdb_id), t);
-    if (t.name)           teamByName.set(t.name.trim().toLowerCase(), t);
+    if (t.name)           teamByName.set(canonTeam(t.name), t);
   });
 
   const { data: matches } = await supabase
@@ -110,7 +116,7 @@ async function buildContext() {
     if (m.home_team_id && m.away_team_id) matchByPair.set(pairKey(m.home_team_id, m.away_team_id), m);
   });
 
-  return { teamByApiId, teamByName, matchByEventId, matchByPair };
+  return { teamByApiId, teamByName, matchByEventId, matchByPair, unresolved: new Map() };
 }
 
 /** Schedule events → fixtures (kickoff/teams) + final results when played. */
@@ -145,19 +151,27 @@ async function syncFromSchedule(events, ctx) {
       if (parsed.homeTeamName && parsed.homeTeamName !== match.home_placeholder) candidate.home_placeholder = parsed.homeTeamName;
       if (parsed.awayTeamName && parsed.awayTeamName !== match.away_placeholder) candidate.away_placeholder = parsed.awayTeamName;
 
-      // Only touch score/status/winner once the match is actually finished, so
-      // setting status='finished' (with winner + scores already in the same
-      // write) cleanly fires the DB scoring trigger.
+      // Finished results come from the schedule (in-play scores come from the
+      // livescore pass). Record the final score + winner here.
       if (parsed.status === 'finished') {
         if (parsed.homeScore != null) candidate.home_score = parsed.homeScore;
         if (parsed.awayScore != null) candidate.away_score = parsed.awayScore;
 
         const winnerUuid = await resolveTeam(getWinnerApiId(parsed), null, ctx);
-        if (winnerUuid) candidate.winner_team_id = winnerUuid;
-        candidate.status = 'finished';
+        const isKnockout = match.round !== 'group_stage';
 
-        if (!winnerUuid && parsed.homeScore === parsed.awayScore && match.round !== 'group_stage') {
-          console.warn(`[SyncMatches] Match ${match.match_number} finished level ${parsed.homeScore}-${parsed.awayScore} — decided on penalties; set winner_team_id manually.`);
+        if (isKnockout && !winnerUuid) {
+          // No draws in the knockout stage. The feed has no penalty column, so a
+          // level "finished" score means we don't know who advanced yet — keep
+          // it showing as in-progress (penalties) and DON'T finalize/score until
+          // a winner is known (a later poll, or an admin setting it).
+          candidate.status = 'penalties';
+          console.warn(`[SyncMatches] Match ${match.match_number} level ${parsed.homeScore}-${parsed.awayScore} in knockout — awaiting winner (penalties); kept in-progress.`);
+        } else {
+          // Set winner + scores + finished together so the scoring trigger sees
+          // everything in one write.
+          if (winnerUuid) candidate.winner_team_id = winnerUuid;
+          candidate.status = 'finished';
         }
       }
 
@@ -185,14 +199,24 @@ async function syncFromLive(events, ctx) {
       if (!match) continue;
       if (match.status === 'finished') continue; // frozen once final
 
-      const candidate = { status: parsed.status };
+      const candidate = {};
       if (parsed.homeScore != null) candidate.home_score = parsed.homeScore;
       if (parsed.awayScore != null) candidate.away_score = parsed.awayScore;
 
+      let status = parsed.status;
       if (parsed.status === 'finished') {
         const winnerUuid = await resolveTeam(getWinnerApiId(parsed), null, ctx);
-        if (winnerUuid) candidate.winner_team_id = winnerUuid;
+        const isKnockout = match.round !== 'group_stage';
+        if (isKnockout && !winnerUuid) {
+          // Knockout can't end level — winner not in the feed yet (penalties).
+          // Keep it in-progress; finalize only once a winner is known.
+          status = 'penalties';
+          console.warn(`[SyncMatches] Match ${match.match_number} level in knockout — awaiting winner (penalties); kept in-progress.`);
+        } else if (winnerUuid) {
+          candidate.winner_team_id = winnerUuid;
+        }
       }
+      candidate.status = status;
 
       if (await applyUpdates(match, candidate)) updated++;
     } catch (err) {
@@ -239,6 +263,13 @@ async function runSync() {
       matchesUpdated += updated;
     } catch (err) {
       console.error('[SyncMatches] Livescore fetch failed:', err.message);
+    }
+
+    // Name the exact teams we couldn't match, so you can map them once:
+    //   UPDATE teams SET thesportsdb_id = '<id>' WHERE name = '<your team name>';
+    if (ctx.unresolved.size) {
+      const list = [...ctx.unresolved.entries()].map(([name, id]) => `"${name}" (id ${id})`).join(', ');
+      console.warn(`[SyncMatches] ${ctx.unresolved.size} TheSportsDB team(s) didn't match any DB team — set their thesportsdb_id: ${list}`);
     }
 
     const { error: logError } = await supabase.from('sync_log').insert({
