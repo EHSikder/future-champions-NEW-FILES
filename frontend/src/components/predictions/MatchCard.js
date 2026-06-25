@@ -1,14 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// Score → outcome. Equal scores always mean draw, for every round
-// (backend already treats predicted_winner_team_id === null as a draw
-// prediction regardless of round, and a real knockout match can never
-// finish level, so this is safe — it just scores 0 winner-points if a
-// knockout score prediction happens to come out tied).
-function deriveWinner(homeScore, awayScore) {
+// Score → outcome. A knockout match can never end in a draw, so when the
+// predicted score is level in a knockout we keep the user's explicit "who
+// advances" pick (home/away) instead of forcing 'draw'. Group stage keeps the
+// old behaviour (equal score = draw).
+function deriveWinner(homeScore, awayScore, isKnockout, prevWinner) {
   if (homeScore > awayScore) return 'home';
   if (awayScore > homeScore) return 'away';
+  // Knockout can't be a draw — keep the existing advancer pick, else default to
+  // 'home' (the "who advances" picker lets the user switch). Never 'draw'/null.
+  if (isKnockout) return (prevWinner === 'home' || prevWinner === 'away') ? prevWinner : 'home';
   return 'draw';
 }
 
@@ -28,6 +30,7 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
   }, [match.kickoff_time, match.status]);
 
   const isLocked = prediction?.isLocked || isLockedLocal || match.status !== 'scheduled';
+  const isKnockout = !!match.round && match.round !== 'group_stage';
   const isFinished = match.status === 'finished';
   const isLive = ['live', 'halftime', 'extra_time', 'penalties'].includes(match.status);
   const showScore = ['live', 'halftime', 'extra_time', 'penalties', 'finished'].includes(match.status);
@@ -49,16 +52,23 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
 
     const newHome = side === 'home' ? Math.max(0, currentHome + delta) : currentHome;
     const newAway = side === 'away' ? Math.max(0, currentAway + delta) : currentAway;
-    const newWinner = deriveWinner(newHome, newAway);
+    const newWinner = deriveWinner(newHome, newAway, isKnockout, prediction?.winner);
 
     onPredictionChange(match.match_number, side === 'home' ? 'homeScore' : 'awayScore', side === 'home' ? newHome : newAway);
     onPredictionChange(match.match_number, 'winner', newWinner);
   };
 
+  // In a knockout, picking who advances when the score is level.
+  const pickAdvancer = (side) => {
+    if (isLocked) return;
+    onPredictionChange(match.match_number, 'winner', side);
+  };
+  const scoreIsLevel = (prediction?.homeScore ?? 0) === (prediction?.awayScore ?? 0);
+
   // "SET 0-0" — only relevant the very first time, before any prediction
   // exists for this match. Disappears the moment the user touches a
   // +/- button (hasPrediction becomes true) or uses this button itself.
-  const showSetZeroDraw = !isLocked && !hasPrediction && match.home_team && match.away_team;
+  const showSetZeroDraw = !isLocked && !hasPrediction && !isKnockout && match.home_team && match.away_team;
 
   const handleSetZeroDraw = () => {
     if (isLocked || hasPrediction) return;
@@ -170,7 +180,7 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
         {/* vs / draw indicator (read-only label, reflects the score) */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span style={{ fontFamily: 'var(--font-hero)', fontSize: '1.5rem', color: 'var(--color-text-dim)', letterSpacing: '0.05em' }}>VS</span>
-          {winner === 'draw' && (
+          {winner === 'draw' && !isKnockout && (
             <span style={{
               padding: '4px 12px', fontSize: '0.7rem', fontWeight: 700,
               letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -287,6 +297,35 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
               )}
             </div>
           </div>
+
+          {/* Knockout, level score → no draws: user must pick who advances. */}
+          {!isLocked && isKnockout && scoreIsLevel && match.home_team && match.away_team && (
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-4)' }}>
+              <div style={{
+                fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em',
+                color: 'var(--color-vibrant-orange)', textTransform: 'uppercase', marginBottom: 'var(--space-2)',
+              }}>
+                Level score — who advances? (no draws in knockouts)
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center' }}>
+                {[['home', homeTeamName], ['away', awayTeamName]].map(([side, label]) => (
+                  <button
+                    key={side}
+                    onClick={() => pickAdvancer(side)}
+                    style={{
+                      flex: 1, maxWidth: 160, padding: '8px 12px', borderRadius: 'var(--radius-md)',
+                      fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                      border: winner === side ? '2px solid #0096FF' : '1px solid var(--color-border)',
+                      background: winner === side ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-4)',
+                      color: '#fff',
+                    }}
+                  >
+                    {label} advances
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* SET 0-0 — only before the user has made any prediction at all */}
           {showSetZeroDraw && (
