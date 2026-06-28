@@ -4,16 +4,112 @@ const env = require('../config/env');
 const {
   fetchSchedule,
   fetchLiveScores,
+  fetchEventExtraTime,
   parseEvent,
   getWinnerApiId,
   canonTeam,
 } = require('../services/sportsDbApiService');
+const { fetchEspnScoreboard, findCompletedWinnerName } = require('../services/espnService');
 
 const API_KEY = env.THESPORTSDB_API_KEY;
+
+// How long after a knockout match ties (penalties) before we start asking ESPN
+// for the shootout winner — gives the shootout time to finish.
+const PENALTY_WAIT_MIN = 10;
 
 // A pair of teams meets at most once in the tournament, so a sorted
 // "uuidA|uuidB" key uniquely identifies a match by its two teams.
 const pairKey = (a, b) => [a, b].sort().join('|');
+
+/**
+ * Decide a finished match's outcome and write it into `candidate`:
+ *  • decisive main score (or group stage) → finished + winner.
+ *  • knockout tied at full time → check EXTRA TIME (v1 lookupevent); if that's
+ *    decisive, finish with the ET winner and fold the ET score into the result.
+ *  • still tied → it's penalties: keep it in-progress and stamp penalties_since
+ *    so the ESPN pass can fetch the shootout winner ~10 min later.
+ */
+async function applyFinishedResult(parsed, match, candidate, ctx) {
+  const isKnockout = match.round !== 'group_stage';
+  const winnerUuid = await resolveTeam(getWinnerApiId(parsed), null, ctx);
+
+  if (winnerUuid || !isKnockout) {
+    if (winnerUuid) candidate.winner_team_id = winnerUuid;
+    candidate.status = 'finished';
+    return;
+  }
+
+  // Knockout, level at full time → was it settled in extra time?
+  let et = null;
+  try { if (parsed.eventId) et = await fetchEventExtraTime(parsed.eventId); }
+  catch (e) { console.warn('[SyncMatches] Extra-time lookup failed:', e.message); }
+
+  if (et && et.etHome != null && et.etAway != null && et.etHome !== et.etAway) {
+    candidate.home_extra_time_score = et.etHome;
+    candidate.away_extra_time_score = et.etAway;
+    candidate.home_score = et.etHome;   // ET score is the final scoreline
+    candidate.away_score = et.etAway;
+    const etWinnerApiId = et.etHome > et.etAway ? parsed.homeTeamApiId : parsed.awayTeamApiId;
+    const etWinnerUuid  = await resolveTeam(etWinnerApiId, null, ctx);
+    if (etWinnerUuid) candidate.winner_team_id = etWinnerUuid;
+    candidate.status = 'finished';
+    console.log(`[SyncMatches] Match ${match.match_number} decided in extra time ${et.etHome}-${et.etAway}.`);
+    return;
+  }
+
+  // Penalties — keep in-progress; ESPN resolves the winner shortly.
+  candidate.status = 'penalties';
+  if (match.status !== 'penalties') candidate.penalties_since = new Date().toISOString();
+  console.warn(`[SyncMatches] Match ${match.match_number} level — penalties; winner via ESPN after ${PENALTY_WAIT_MIN} min.`);
+}
+
+/**
+ * For matches sitting in 'penalties', once the wait has elapsed, read the
+ * shootout winner from ESPN (matched by team names + date) and finalize. One
+ * ESPN call per date covers however many matches tied that day (dual matches).
+ */
+async function resolvePendingPenalties(ctx) {
+  const { data: pens } = await supabase
+    .from('matches')
+    .select('id, match_number, status, kickoff_time, penalties_since, home:home_team_id(name), away:away_team_id(name)')
+    .eq('status', 'penalties');
+  if (!pens || !pens.length) return 0;
+
+  let resolved = 0;
+  const espnByDate = {};
+
+  for (const m of pens) {
+    if (!m.penalties_since) {
+      await supabase.from('matches').update({ penalties_since: new Date().toISOString() }).eq('id', m.id);
+      continue; // start the clock
+    }
+    if ((Date.now() - new Date(m.penalties_since).getTime()) / 60000 < PENALTY_WAIT_MIN) continue;
+
+    const homeName = m.home && m.home.name;
+    const awayName = m.away && m.away.name;
+    if (!homeName || !awayName) continue;
+
+    const dateStr = m.kickoff_time ? new Date(m.kickoff_time).toISOString().slice(0, 10).replace(/-/g, '') : '';
+    if (!(dateStr in espnByDate)) {
+      try { espnByDate[dateStr] = await fetchEspnScoreboard(dateStr || null); }
+      catch (e) { console.warn('[SyncMatches] ESPN fetch failed:', e.message); espnByDate[dateStr] = []; }
+    }
+
+    const winnerName = findCompletedWinnerName(espnByDate[dateStr], homeName, awayName);
+    if (!winnerName) continue; // not decided yet — retry next cycle
+
+    const winnerUuid = await resolveTeam(null, winnerName, ctx);
+    if (!winnerUuid) { console.warn(`[SyncMatches] ESPN penalty winner "${winnerName}" (match ${m.match_number}) not found in DB.`); continue; }
+
+    const { error } = await supabase.from('matches')
+      .update({ winner_team_id: winnerUuid, status: 'finished', updated_at: new Date().toISOString() })
+      .eq('id', m.id);
+    if (error) { console.error('[SyncMatches] penalty finalize error:', error.message); continue; }
+    console.log(`[SyncMatches] Match ${m.match_number} penalty winner: ${winnerName} (via ESPN).`);
+    resolved++;
+  }
+  return resolved;
+}
 
 /**
  * Resolve a TheSportsDB team id → our team UUID.
@@ -152,27 +248,12 @@ async function syncFromSchedule(events, ctx) {
       if (parsed.awayTeamName && parsed.awayTeamName !== match.away_placeholder) candidate.away_placeholder = parsed.awayTeamName;
 
       // Finished results come from the schedule (in-play scores come from the
-      // livescore pass). Record the final score + winner here.
+      // livescore pass). Record the final score, then resolve the outcome
+      // (decisive / extra-time / penalties) via applyFinishedResult.
       if (parsed.status === 'finished') {
         if (parsed.homeScore != null) candidate.home_score = parsed.homeScore;
         if (parsed.awayScore != null) candidate.away_score = parsed.awayScore;
-
-        const winnerUuid = await resolveTeam(getWinnerApiId(parsed), null, ctx);
-        const isKnockout = match.round !== 'group_stage';
-
-        if (isKnockout && !winnerUuid) {
-          // No draws in the knockout stage. The feed has no penalty column, so a
-          // level "finished" score means we don't know who advanced yet — keep
-          // it showing as in-progress (penalties) and DON'T finalize/score until
-          // a winner is known (a later poll, or an admin setting it).
-          candidate.status = 'penalties';
-          console.warn(`[SyncMatches] Match ${match.match_number} level ${parsed.homeScore}-${parsed.awayScore} in knockout — awaiting winner (penalties); kept in-progress.`);
-        } else {
-          // Set winner + scores + finished together so the scoring trigger sees
-          // everything in one write.
-          if (winnerUuid) candidate.winner_team_id = winnerUuid;
-          candidate.status = 'finished';
-        }
+        await applyFinishedResult(parsed, match, candidate, ctx);
       }
 
       if (await applyUpdates(match, candidate)) updated++;
@@ -203,20 +284,11 @@ async function syncFromLive(events, ctx) {
       if (parsed.homeScore != null) candidate.home_score = parsed.homeScore;
       if (parsed.awayScore != null) candidate.away_score = parsed.awayScore;
 
-      let status = parsed.status;
       if (parsed.status === 'finished') {
-        const winnerUuid = await resolveTeam(getWinnerApiId(parsed), null, ctx);
-        const isKnockout = match.round !== 'group_stage';
-        if (isKnockout && !winnerUuid) {
-          // Knockout can't end level — winner not in the feed yet (penalties).
-          // Keep it in-progress; finalize only once a winner is known.
-          status = 'penalties';
-          console.warn(`[SyncMatches] Match ${match.match_number} level in knockout — awaiting winner (penalties); kept in-progress.`);
-        } else if (winnerUuid) {
-          candidate.winner_team_id = winnerUuid;
-        }
+        await applyFinishedResult(parsed, match, candidate, ctx);
+      } else {
+        candidate.status = parsed.status;
       }
-      candidate.status = status;
 
       if (await applyUpdates(match, candidate)) updated++;
     } catch (err) {
@@ -263,6 +335,16 @@ async function runSync() {
       matchesUpdated += updated;
     } catch (err) {
       console.error('[SyncMatches] Livescore fetch failed:', err.message);
+    }
+
+    // 3) Resolve penalty-shootout winners via ESPN (only for knockout matches
+    //    that tied and have waited out the shootout). Safe with dual matches —
+    //    one ESPN call per date covers all of them.
+    try {
+      const n = await resolvePendingPenalties(ctx);
+      if (n) matchesUpdated += n;
+    } catch (err) {
+      console.error('[SyncMatches] Penalty resolution failed:', err.message);
     }
 
     // Name the exact teams we couldn't match, so you can map them once:
