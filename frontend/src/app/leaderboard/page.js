@@ -22,9 +22,10 @@ function getShortName(name) {
 
 const ROUND_TABS = [
   { id: 'overall', label: 'Overall', icon: '🏆' },
-  { id: 'group_stage', label: 'Round 1', desc: 'Group Stage', icon: '⚽' },
   { id: 'round_of_32_16', label: 'Round 2', desc: 'R32 & R16', icon: '🎯' },
   { id: 'quarterfinal_semifinal', label: 'Round 3', desc: 'QF, SF & Final', icon: '🔥' },
+  // Round 1 sits last and announces its winner in a popup when opened.
+  { id: 'group_stage', label: 'Round 1', desc: 'Group Stage', icon: '⚽' },
 ];
 
 const ROUND_PRIZE = {
@@ -39,6 +40,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('overall');
+  const [showRound1Popup, setShowRound1Popup] = useState(false);
   const { t } = useLanguage();
   const { user } = useAuth();
 
@@ -95,6 +97,10 @@ export default function LeaderboardPage() {
   const rank1 = topThree.find(u => u.rank === 1);
   const rank2 = topThree.find(u => u.rank === 2);
   const rank3 = topThree.find(u => u.rank === 3);
+
+  // The true table-topper of the active round (ignores the search filter) —
+  // used by the Round 1 winner popup.
+  const roundWinner = leaders.find(u => u.rank === 1);
 
   const currentTabInfo = ROUND_TABS.find(t => t.id === activeTab);
 
@@ -162,7 +168,7 @@ export default function LeaderboardPage() {
               <button
                 key={tab.id}
                 className={`round-tab${activeTab === tab.id ? ' active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); setShowRound1Popup(tab.id === 'group_stage'); }}
               >
                 {tab.icon} {tab.label}
               </button>
@@ -297,6 +303,82 @@ export default function LeaderboardPage() {
               {currentUser.total_points}
             </span>
             <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginLeft: 4 }}>pts</span>
+          </div>
+        </div>
+      )}
+
+      {/* Round 1 winner popup — opens when the Round 1 tab is clicked.
+          Closing it reveals the Round 1 leaderboard (already loaded behind it). */}
+      {showRound1Popup && activeTab === 'group_stage' && (
+        <div
+          onClick={() => setShowRound1Popup(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'relative', width: '100%', maxWidth: 380, textAlign: 'center',
+              background: 'var(--color-surface-2)', border: '1px solid rgba(255,215,0,0.4)',
+              borderRadius: 'var(--radius-xl)', padding: 'var(--space-8) var(--space-6)',
+              boxShadow: '0 0 40px rgba(255,215,0,0.25)',
+            }}
+          >
+            <button
+              onClick={() => setShowRound1Popup(false)}
+              aria-label="Close"
+              style={{
+                position: 'absolute', top: 8, right: 14, background: 'none', border: 'none',
+                color: 'var(--color-text-muted)', fontSize: '1.7rem', cursor: 'pointer', lineHeight: 1,
+              }}
+            >×</button>
+
+            {loading ? (
+              <div style={{ padding: 'var(--space-10) 0' }}><div className="spinner spinner-lg" /></div>
+            ) : roundWinner ? (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)', animation: 'float 3s ease-in-out infinite' }}>👑</div>
+                <div style={{
+                  fontFamily: 'var(--font-hero)', fontSize: '0.9rem', letterSpacing: '0.18em',
+                  color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: 'var(--space-4)',
+                }}>Round 1 Winner</div>
+                <div style={{
+                  width: 88, height: 88, borderRadius: '50%', margin: '0 auto var(--space-4)',
+                  background: 'var(--color-surface-3)', border: '3px solid rgba(255,215,0,0.6)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 800, fontSize: '1.6rem', color: '#fff', boxShadow: '0 0 28px rgba(255,215,0,0.5)',
+                }}>
+                  {getInitials(roundWinner.display_name || roundWinner.full_name)}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#fff', marginBottom: 4 }}>
+                  {roundWinner.display_name || roundWinner.full_name}
+                </div>
+                <div style={{
+                  fontFamily: 'var(--font-hero)', fontSize: '2.2rem', letterSpacing: '0.05em',
+                  background: 'var(--gradient-gold)', WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 'var(--space-3)',
+                }}>
+                  {roundWinner.total_points} pts
+                </div>
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: 'var(--space-6)' }}>
+                  Group Stage champion — winner of the Round 1 voucher prize 🎟️
+                </div>
+                <button className="btn btn-primary" onClick={() => setShowRound1Popup(false)} style={{ width: '100%' }}>
+                  VIEW ROUND 1 LEADERBOARD
+                </button>
+              </>
+            ) : (
+              <div style={{ padding: 'var(--space-6) 0' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-3)' }}>⚽</div>
+                <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>No Round 1 results yet.</p>
+                <button className="btn btn-primary" onClick={() => setShowRound1Popup(false)} style={{ width: '100%' }}>
+                  VIEW LEADERBOARD
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
