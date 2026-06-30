@@ -44,6 +44,24 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
   const hasPrediction = prediction !== undefined && prediction !== null;
   const winner = prediction?.winner; // 'home' | 'away' | 'draw' | undefined
 
+  // Which side actually won (once finished) — drives the result highlight.
+  const actualWinnerSide = isFinished && match.winner_team_id
+    ? (match.winner_team_id === match.home_team?.id ? 'home'
+       : match.winner_team_id === match.away_team?.id ? 'away' : null)
+    : null;
+
+  // Team-box colours: after a finished match, the real winner is outlined blue
+  // and a WRONG user pick is outlined red; before that, the user's pick is blue.
+  const teamBoxColors = (side) => {
+    if (isFinished && actualWinnerSide) {
+      if (side === actualWinnerSide) return { border: '2px solid #0096FF', bg: 'rgba(0,150,255,0.15)', glow: 'var(--glow-blue)' };
+      if (side === winner && winner !== actualWinnerSide) return { border: '2px solid #FF4466', bg: 'rgba(255,68,102,0.12)', glow: 'none' };
+      return { border: '1px solid var(--color-border)', bg: 'var(--color-surface-3)', glow: 'none' };
+    }
+    if (side === winner) return { border: '1px solid #0096FF', bg: 'rgba(0,150,255,0.15)', glow: 'var(--glow-blue)' };
+    return { border: '1px solid var(--color-border)', bg: 'var(--color-surface-3)', glow: 'none' };
+  };
+
   const updateScore = (side, delta) => {
     if (isLocked || !match.home_team || !match.away_team) return;
 
@@ -153,6 +171,16 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
         </div>
       )}
 
+      {/* Penalty shootout score (knockouts decided on penalties) */}
+      {match.home_penalty_score != null && match.away_penalty_score != null && (
+        <div style={{
+          textAlign: 'center', fontSize: '0.78rem', fontWeight: 600,
+          color: 'var(--color-text-dim)', marginTop: -6, marginBottom: 'var(--space-3)',
+        }}>
+          Penalties {match.home_penalty_score} – {match.away_penalty_score}
+        </div>
+      )}
+
       {/* Teams row — display only, no longer clickable.
           Outcome (highlight) is driven entirely by the score below. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
@@ -161,11 +189,11 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
           style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 'var(--space-2)', padding: 'var(--space-4) var(--space-2)',
-            background: winner === 'home' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
-            border: `1px solid ${winner === 'home' ? '#0096FF' : 'var(--color-border)'}`,
+            background: teamBoxColors('home').bg,
+            border: teamBoxColors('home').border,
             borderRadius: 'var(--radius-lg)',
             transition: 'all 0.2s',
-            boxShadow: winner === 'home' ? 'var(--glow-blue)' : 'none',
+            boxShadow: teamBoxColors('home').glow,
           }}
         >
           {homeFlag
@@ -198,11 +226,11 @@ export default function MatchCard({ match, prediction, onPredictionChange }) {
           style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 'var(--space-2)', padding: 'var(--space-4) var(--space-2)',
-            background: winner === 'away' ? 'rgba(0,150,255,0.15)' : 'var(--color-surface-3)',
-            border: `1px solid ${winner === 'away' ? '#0096FF' : 'var(--color-border)'}`,
+            background: teamBoxColors('away').bg,
+            border: teamBoxColors('away').border,
             borderRadius: 'var(--radius-lg)',
             transition: 'all 0.2s',
-            boxShadow: winner === 'away' ? 'var(--glow-blue)' : 'none',
+            boxShadow: teamBoxColors('away').glow,
           }}
         >
           {awayFlag
