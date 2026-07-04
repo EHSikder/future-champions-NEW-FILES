@@ -16,9 +16,35 @@ const API_KEY = env.THESPORTSDB_API_KEY;
 // for the shootout winner — gives the shootout time to finish.
 const PENALTY_WAIT_MIN = 10;
 
-// A pair of teams meets at most once in the tournament, so a sorted
-// "uuidA|uuidB" key uniquely identifies a match by its two teams.
+// A pair of teams can meet up to twice (group + knockout), so a pair alone is
+// not a unique key — we disambiguate by date below.
 const pairKey = (a, b) => [a, b].sort().join('|');
+
+// Two games can share a DATE but never a kickoff TIME, so we disambiguate by
+// matching the event's kickoff to a candidate's kickoff (small tolerance for
+// minor feed differences). It NEVER guesses: if it can't confirm a match by
+// time, it links nothing.
+const KICKOFF_TOL_MS = 2 * 3600 * 1000; // 2h — well under the gap between same-day games
+const closeTime = (a, b) => !!(a && b) && Math.abs(new Date(a) - new Date(b)) <= KICKOFF_TOL_MS;
+
+/**
+ * From the unlinked matches that share an event's team pair, pick the ONE it
+ * belongs to by kickoff time (or null if unsure — never guess):
+ *   • 1 candidate → if both have a time it must line up; a not-yet-scheduled
+ *     match with no time is allowed (seeding);
+ *   • 2+ candidates (teams meet in group AND knockout) → the one whose kickoff
+ *     matches this event's time.
+ */
+function pickByTime(candidates, eventTime) {
+  const list = (candidates || []).filter((c) => !c.thesportsdb_event_id);
+  if (list.length === 0) return null;
+  if (list.length === 1) {
+    const c = list[0];
+    if (c.kickoff_time && eventTime && !closeTime(c.kickoff_time, eventTime)) return null;
+    return c;
+  }
+  return list.find((c) => closeTime(c.kickoff_time, eventTime)) || null;
+}
 
 /**
  * Decide a finished match's outcome and write it into `candidate`:
@@ -135,21 +161,23 @@ async function resolveTeam(apiId, apiName, ctx) {
  *     exact link.
  */
 async function linkMatch(parsed, homeUuid, awayUuid, ctx) {
+  // 1) Exact, by stored event id.
   if (parsed.eventId && ctx.matchByEventId.has(parsed.eventId)) {
     return ctx.matchByEventId.get(parsed.eventId);
   }
-  if (homeUuid && awayUuid) {
-    const m = ctx.matchByPair.get(pairKey(homeUuid, awayUuid));
-    if (m) {
-      if (parsed.eventId && !m.thesportsdb_event_id) {
-        await supabase.from('matches').update({ thesportsdb_event_id: parsed.eventId }).eq('id', m.id);
-        m.thesportsdb_event_id = parsed.eventId;
-        ctx.matchByEventId.set(parsed.eventId, m);
-      }
-      return m;
-    }
+  if (!homeUuid || !awayUuid) return null;
+
+  // 2) Team-pair fallback, disambiguated by kickoff time so a stray/duplicate
+  //    event can't hijack the wrong match (and teams meeting twice resolve).
+  const m = pickByTime(ctx.matchByPair.get(pairKey(homeUuid, awayUuid)), parsed.kickoffTime);
+  if (!m) return null;
+
+  if (parsed.eventId && !m.thesportsdb_event_id) {
+    await supabase.from('matches').update({ thesportsdb_event_id: parsed.eventId }).eq('id', m.id);
+    m.thesportsdb_event_id = parsed.eventId;
+    ctx.matchByEventId.set(parsed.eventId, m);
   }
-  return null;
+  return m;
 }
 
 /**
@@ -192,10 +220,14 @@ async function buildContext() {
     .select('id, match_number, round, thesportsdb_event_id, kickoff_time, home_team_id, away_team_id, home_placeholder, away_placeholder, status, home_score, away_score, winner_team_id');
 
   const matchByEventId = new Map();
-  const matchByPair    = new Map();
+  const matchByPair    = new Map();   // pairKey → [matches] (teams can meet twice)
   (matches || []).forEach(m => {
     if (m.thesportsdb_event_id) matchByEventId.set(String(m.thesportsdb_event_id), m);
-    if (m.home_team_id && m.away_team_id) matchByPair.set(pairKey(m.home_team_id, m.away_team_id), m);
+    if (m.home_team_id && m.away_team_id) {
+      const k = pairKey(m.home_team_id, m.away_team_id);
+      if (!matchByPair.has(k)) matchByPair.set(k, []);
+      matchByPair.get(k).push(m);
+    }
   });
 
   return { teamByApiId, teamByName, matchByEventId, matchByPair, unresolved: new Map() };
@@ -227,8 +259,11 @@ async function syncFromSchedule(events, ctx) {
         candidate.kickoff_time = parsed.kickoffTime;
       }
 
-      if (homeUuid && homeUuid !== match.home_team_id) candidate.home_team_id = homeUuid;
-      if (awayUuid && awayUuid !== match.away_team_id) candidate.away_team_id = awayUuid;
+      // Fill teams only when the slot is empty — never overwrite (a knockout's
+      // teams come from bracket advancement / the group draw, and overwriting
+      // would let a mis-linked event corrupt them).
+      if (homeUuid && !match.home_team_id) candidate.home_team_id = homeUuid;
+      if (awayUuid && !match.away_team_id) candidate.away_team_id = awayUuid;
       if (parsed.homeTeamName && parsed.homeTeamName !== match.home_placeholder) candidate.home_placeholder = parsed.homeTeamName;
       if (parsed.awayTeamName && parsed.awayTeamName !== match.away_placeholder) candidate.away_placeholder = parsed.awayTeamName;
 
