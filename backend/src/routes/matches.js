@@ -8,7 +8,10 @@ const supabase = require('../config/database');
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { round, status, limit = 100 } = req.query;
+    // No default cap — the tournament has 104 matches, so a default of 100 was
+    // silently dropping the final 4 (SF, third place, final). Only limit when the
+    // caller explicitly asks for one.
+    const { round, status, limit } = req.query;
 
     let query = supabase
       .from('matches')
@@ -32,11 +35,11 @@ router.get('/', async (req, res, next) => {
         away_team:away_team_id (id, name, short_code, flag_url),
         winner_team:winner_team_id (id, name, short_code, flag_url)
       `)
-      .order('kickoff_time', { ascending: true })
-      .limit(parseInt(limit, 10));
+      .order('kickoff_time', { ascending: true });
 
     if (round)  query = query.eq('round', round);
     if (status) query = query.eq('status', status);
+    if (limit)  query = query.limit(parseInt(limit, 10));
 
     const { data: matches, error } = await query;
     if (error) throw error;

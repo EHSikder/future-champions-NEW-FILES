@@ -22,9 +22,10 @@ function getShortName(name) {
 
 const ROUND_TABS = [
   { id: 'overall', label: 'Overall', icon: '🏆' },
-  { id: 'round_of_32_16', label: 'Round 2', desc: 'R32 & R16', icon: '🎯' },
   { id: 'quarterfinal_semifinal', label: 'Round 3', desc: 'QF, SF & Final', icon: '🔥' },
-  // Round 1 sits last and announces its winner in a popup when opened.
+  // Finished rounds sit at the end and announce their winner in a popup when
+  // opened. Round 2 finished after Round 1, so it goes right after Round 3.
+  { id: 'round_of_32_16', label: 'Round 2', desc: 'R32 & R16', icon: '🎯' },
   { id: 'group_stage', label: 'Round 1', desc: 'Group Stage', icon: '⚽' },
 ];
 
@@ -35,12 +36,16 @@ const ROUND_PRIZE = {
   quarterfinal_semifinal: 'Voucher Prize',
 };
 
+// Rounds that have finished: opening the tab announces that round's winner in a
+// popup; closing the popup reveals that round's leaderboard behind it.
+const POPUP_ROUNDS = ['round_of_32_16', 'group_stage'];
+
 export default function LeaderboardPage() {
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('overall');
-  const [showRound1Popup, setShowRound1Popup] = useState(false);
+  const [showWinnerPopup, setShowWinnerPopup] = useState(false);
   const { t } = useLanguage();
   const { user } = useAuth();
 
@@ -168,7 +173,7 @@ export default function LeaderboardPage() {
               <button
                 key={tab.id}
                 className={`round-tab${activeTab === tab.id ? ' active' : ''}`}
-                onClick={() => { setActiveTab(tab.id); setShowRound1Popup(tab.id === 'group_stage'); }}
+                onClick={() => { setActiveTab(tab.id); setShowWinnerPopup(POPUP_ROUNDS.includes(tab.id)); }}
               >
                 {tab.icon} {tab.label}
               </button>
@@ -307,11 +312,12 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Round 1 winner popup — opens when the Round 1 tab is clicked.
-          Closing it reveals the Round 1 leaderboard (already loaded behind it). */}
-      {showRound1Popup && activeTab === 'group_stage' && (
+      {/* Finished-round winner popup — opens when a finished round's tab (Round 1
+          or Round 2) is clicked. Closing it reveals that round's leaderboard
+          (already loaded behind it). */}
+      {showWinnerPopup && POPUP_ROUNDS.includes(activeTab) && (
         <div
-          onClick={() => setShowRound1Popup(false)}
+          onClick={() => setShowWinnerPopup(false)}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
             background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
@@ -328,7 +334,7 @@ export default function LeaderboardPage() {
             }}
           >
             <button
-              onClick={() => setShowRound1Popup(false)}
+              onClick={() => setShowWinnerPopup(false)}
               aria-label="Close"
               style={{
                 position: 'absolute', top: 8, right: 14, background: 'none', border: 'none',
@@ -344,7 +350,7 @@ export default function LeaderboardPage() {
                 <div style={{
                   fontFamily: 'var(--font-hero)', fontSize: '0.9rem', letterSpacing: '0.18em',
                   color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: 'var(--space-4)',
-                }}>Round 1 Winner</div>
+                }}>{currentTabInfo?.label} Winner</div>
                 <div style={{
                   width: 88, height: 88, borderRadius: '50%', margin: '0 auto var(--space-4)',
                   background: 'var(--color-surface-3)', border: '3px solid rgba(255,215,0,0.6)',
@@ -364,17 +370,17 @@ export default function LeaderboardPage() {
                   {roundWinner.total_points} pts
                 </div>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: 'var(--space-6)' }}>
-                  Group Stage champion — winner of the Round 1 voucher prize 🎟️
+                  {currentTabInfo?.desc} champion — winner of the {currentTabInfo?.label} voucher prize 🎟️
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowRound1Popup(false)} style={{ width: '100%' }}>
-                  VIEW ROUND 1 LEADERBOARD
+                <button className="btn btn-primary" onClick={() => setShowWinnerPopup(false)} style={{ width: '100%' }}>
+                  VIEW {currentTabInfo?.label?.toUpperCase()} LEADERBOARD
                 </button>
               </>
             ) : (
               <div style={{ padding: 'var(--space-6) 0' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-3)' }}>⚽</div>
-                <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>No Round 1 results yet.</p>
-                <button className="btn btn-primary" onClick={() => setShowRound1Popup(false)} style={{ width: '100%' }}>
+                <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>No {currentTabInfo?.label} results yet.</p>
+                <button className="btn btn-primary" onClick={() => setShowWinnerPopup(false)} style={{ width: '100%' }}>
                   VIEW LEADERBOARD
                 </button>
               </div>
