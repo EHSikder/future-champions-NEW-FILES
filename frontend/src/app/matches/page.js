@@ -244,14 +244,17 @@ export default function MatchesPage() {
     } catch {}
   };
 
-  // Group matches by round
-  const rounds = ['group_stage', 'round_of_32', 'round_of_16', 'quarterfinal', 'semifinal', 'final'];
+  // Group matches by round. NOTE: any round value missing from this list is
+  // silently dropped from the page — that's why the third-place match wasn't
+  // showing. 'third_place' sits just before the final (it's played the day before).
+  const rounds = ['group_stage', 'round_of_32', 'round_of_16', 'quarterfinal', 'semifinal', 'third_place', 'final'];
   const roundLabels = {
     group_stage: 'Group Stage',
     round_of_32: 'Round of 32',
     round_of_16: 'Round of 16',
     quarterfinal: 'Quarter-Finals',
     semifinal: 'Semi-Finals',
+    third_place: 'Third-Place Play-off',
     final: 'Final',
   };
   const matchesByRound = rounds.reduce((acc, r) => {
