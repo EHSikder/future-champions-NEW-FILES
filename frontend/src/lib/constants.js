@@ -49,6 +49,7 @@ export const ROUND_ORDER = [
   'round_of_16',
   'quarterfinal',
   'semifinal',
+  'third_place',
   'final',
 ];
 
